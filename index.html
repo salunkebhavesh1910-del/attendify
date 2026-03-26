@@ -9,6 +9,38 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
   <!-- HTML5 QR Code Scanner Library -->
   <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+  <!-- Firebase SDKs -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js";
+    import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js";
+    import { getFirestore, collection, doc, setDoc, getDoc, getDocs, updateDoc, query, where, orderBy, addDoc, deleteDoc, Timestamp, onSnapshot, arrayUnion, arrayRemove } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js";
+    
+    const firebaseConfig = {
+  apiKey: "AIzaSyDUYIdvOOKSR9cXdOa2J3NqDJAkRzOgpMU",
+  authDomain: "attendify-9a37e.firebaseapp.com",
+  projectId: "attendify-9a37e",
+  storageBucket: "attendify-9a37e.firebasestorage.app",
+  messagingSenderId: "617346905836",
+  appId: "1:617346905836:web:518c474261740f21d717c9"
+};
+    
+    // Initialize Firebase
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+    
+    // Make available globally
+    window.auth = auth;
+    window.db = db;
+    window.Timestamp = Timestamp;
+    
+    // Database References
+    const usersRef = collection(db, "users");
+    const attendanceRef = collection(db, "attendance");
+    const leavesRef = collection(db, "leaves");
+    const announcementsRef = collection(db, "announcements");
+    const parentChildLinksRef = collection(db, "parentChildLinks");
+  </script>
   <style>
     * {
       margin: 0;
@@ -424,7 +456,7 @@
     
     .announcement-list, .children-list-items {
       list-style: none;
-      max-height: 300px;
+      max-height: 400px;
       overflow-y: auto;
     }
     
@@ -503,7 +535,6 @@
     }
     .role-option i { margin-right: 8px; }
     
-    /* Camera switch button */
     .camera-switch {
       background: #f1f5f9;
       border: 1px solid #cbd5e1;
@@ -515,6 +546,28 @@
       display: inline-flex;
       align-items: center;
       gap: 8px;
+    }
+    
+    .announcement-form {
+      margin-bottom: 1.5rem;
+      padding-bottom: 1rem;
+      border-bottom: 2px solid #e2e8f0;
+    }
+    
+    .announcement-item {
+      padding: 12px;
+      border-bottom: 1px solid #e2e8f0;
+    }
+    
+    .announcement-item strong {
+      font-size: 1rem;
+      color: #1e293b;
+    }
+    
+    .announcement-date {
+      font-size: 0.7rem;
+      color: #64748b;
+      margin-top: 4px;
     }
   </style>
 </head>
@@ -543,7 +596,7 @@
     </div>
   </div>
 
-  <!-- Signup Modal with Role Selection -->
+  <!-- Signup Modal -->
   <div id="signupModal" class="modal">
     <div class="modal-content">
       <h3><i class="fas fa-user-plus"></i> Create Account</h3>
@@ -561,8 +614,8 @@
       <form id="signupForm">
         <div class="input-group"><input type="text" id="signupName" placeholder="Full Name" required></div>
         <div class="input-group"><input type="email" id="signupEmail" placeholder="Email Address" required></div>
-        <div class="input-group" id="rollNoField"><input type="text" id="signupRollNo" placeholder="Roll Number / Student ID"></div>
-        <div class="input-group" id="classField"><input type="text" id="signupClass" placeholder="Class / Grade"></div>
+        <div class="input-group" id="rollNoField" style="display:none;"><input type="text" id="signupRollNo" placeholder="Roll Number / Student ID"></div>
+        <div class="input-group" id="classField" style="display:none;"><input type="text" id="signupClass" placeholder="Class / Grade"></div>
         <div class="input-group" id="childLinkField" style="display:none;">
           <input type="text" id="signupChildRollNo" placeholder="Your Child's Roll Number (Optional)">
           <small style="color:#64748b; display:block; margin-top:5px;">Enter your child's roll number to link their account</small>
@@ -576,14 +629,16 @@
     </div>
   </div>
 
-  <!-- Link Child Modal for Parents -->
-  <div id="linkChildModal" class="modal">
+  <!-- Create Announcement Modal (Teacher Only) -->
+  <div id="createAnnouncementModal" class="modal">
     <div class="modal-content">
-      <h3><i class="fas fa-child"></i> Link Your Child</h3>
-      <p style="margin-bottom: 1rem; color: #64748b;">Enter your child's roll number to view their attendance</p>
-      <div class="input-group"><input type="text" id="linkChildRollNo" placeholder="Child's Roll Number"></div>
-      <button class="btn-primary" onclick="linkChild()">Link Child</button>
-      <button class="btn-secondary" onclick="closeLinkChildModal()">Cancel</button>
+      <h3><i class="fas fa-bullhorn"></i> Create Announcement</h3>
+      <form id="createAnnouncementForm">
+        <div class="input-group"><input type="text" id="announcementTitle" placeholder="Announcement Title" required></div>
+        <div class="input-group"><textarea id="announcementContent" rows="4" placeholder="Announcement Details" required></textarea></div>
+        <button type="submit" class="btn-primary">Post Announcement</button>
+        <button type="button" class="btn-secondary" onclick="closeCreateAnnouncementModal()">Cancel</button>
+      </form>
     </div>
   </div>
 
@@ -687,7 +742,7 @@
     </div>
   </div>
 
-  <!-- Announcement Modal -->
+  <!-- Announcement Modal (View Only) -->
   <div id="announcementModal" class="modal">
     <div class="modal-content">
       <h3><i class="fas fa-bullhorn"></i> Announcements</h3>
@@ -696,47 +751,49 @@
     </div>
   </div>
 
-  <script>
-    // Database
-    let db = {
-      users: [],
-      attendance: [],
-      leaves: [],
-      parentChildLinks: [],
-      announcements: [],
-      notifications: []
-    };
+  <!-- Link Child Modal for Parents -->
+  <div id="linkChildModal" class="modal">
+    <div class="modal-content">
+      <h3><i class="fas fa-child"></i> Link Your Child</h3>
+      <p style="margin-bottom: 1rem; color: #64748b;">Enter your child's roll number to view their attendance</p>
+      <div class="input-group"><input type="text" id="linkChildRollNo" placeholder="Child's Roll Number"></div>
+      <button class="btn-primary" onclick="linkChild()">Link Child</button>
+      <button class="btn-secondary" onclick="closeLinkChildModal()">Cancel</button>
+    </div>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js";
+    import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js";
+    import { getFirestore, collection, doc, setDoc, getDoc, getDocs, updateDoc, query, where, orderBy, addDoc, deleteDoc, Timestamp, onSnapshot } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js";
+    
+    const firebaseConfig = {
+  apiKey: "AIzaSyDUYIdvOOKSR9cXdOa2J3NqDJAkRzOgpMU",
+  authDomain: "attendify-9a37e.firebaseapp.com",
+  projectId: "attendify-9a37e",
+  storageBucket: "attendify-9a37e.firebasestorage.app",
+  messagingSenderId: "617346905836",
+  appId: "1:617346905836:web:518c474261740f21d717c9"
+};
+    
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
     
     let currentUser = null;
     let selectedRole = '';
     let html5QrCode = null;
     let currentCameraId = null;
+    let announcementsUnsubscribe = null;
     
-    // Load data from localStorage
-    function loadFromLocalStorage() {
-      const savedUsers = localStorage.getItem('attendify_users');
-      const savedAttendance = localStorage.getItem('attendify_attendance');
-      const savedLeaves = localStorage.getItem('attendify_leaves');
-      const savedLinks = localStorage.getItem('attendify_parent_child_links');
-      const savedAnnouncements = localStorage.getItem('attendify_announcements');
-      
-      if (savedUsers) db.users = JSON.parse(savedUsers);
-      if (savedAttendance) db.attendance = JSON.parse(savedAttendance);
-      if (savedLeaves) db.leaves = JSON.parse(savedLeaves);
-      if (savedLinks) db.parentChildLinks = JSON.parse(savedLinks);
-      if (savedAnnouncements) db.announcements = JSON.parse(savedAnnouncements);
-    }
-    
-    function saveToLocalStorage() {
-      localStorage.setItem('attendify_users', JSON.stringify(db.users));
-      localStorage.setItem('attendify_attendance', JSON.stringify(db.attendance));
-      localStorage.setItem('attendify_leaves', JSON.stringify(db.leaves));
-      localStorage.setItem('attendify_parent_child_links', JSON.stringify(db.parentChildLinks));
-      localStorage.setItem('attendify_announcements', JSON.stringify(db.announcements));
-    }
+    // Show splash screen
+    setTimeout(() => {
+      document.getElementById('splashScreen').style.display = 'none';
+      document.getElementById('welcomeContainer').style.display = 'flex';
+    }, 1000);
     
     // Role selection for signup
-    function selectSignupRole(role) {
+    window.selectSignupRole = function(role) {
       selectedRole = role;
       document.querySelectorAll('.role-option').forEach(opt => opt.classList.remove('selected'));
       document.querySelector(`.role-option[data-role="${role}"]`).classList.add('selected');
@@ -763,14 +820,9 @@
         classField.style.display = 'none';
         childLinkField.style.display = 'none';
       }
-    }
+    };
     
-    setTimeout(() => {
-      document.getElementById('splashScreen').style.display = 'none';
-      document.getElementById('welcomeContainer').style.display = 'flex';
-    }, 1000);
-    
-    function showSignupModal() {
+    window.showSignupModal = function() {
       selectedRole = '';
       document.getElementById('signupRole').value = '';
       document.querySelectorAll('.role-option').forEach(opt => opt.classList.remove('selected'));
@@ -779,13 +831,13 @@
       document.getElementById('childLinkField').style.display = 'none';
       document.getElementById('signupForm').reset();
       document.getElementById('signupModal').style.display = 'flex';
-    }
+    };
     
-    function closeSignupModal() {
+    window.closeSignupModal = function() {
       document.getElementById('signupModal').style.display = 'none';
-    }
+    };
     
-    document.getElementById('signupForm')?.addEventListener('submit', (e) => {
+    document.getElementById('signupForm')?.addEventListener('submit', async (e) => {
       e.preventDefault();
       const name = document.getElementById('signupName').value;
       const email = document.getElementById('signupEmail').value;
@@ -806,75 +858,79 @@
         return;
       }
       
-      if (db.users.find(u => u.email === email)) {
-        alert('Email already registered! Please login.');
+      try {
+        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        const userId = userCredential.user.uid;
+        
+        const userData = {
+          uid: userId,
+          name: name,
+          email: email,
+          role: role,
+          createdAt: Timestamp.now()
+        };
+        
+        if (role === 'student') {
+          userData.rollNo = rollNo;
+          userData.class = className;
+        }
+        
+        await setDoc(doc(db, "users", userId), userData);
+        
+        if (role === 'parent' && childRollNo) {
+          const studentsQuery = query(collection(db, "users"), where("rollNo", "==", childRollNo), where("role", "==", "student"));
+          const studentSnapshot = await getDocs(studentsQuery);
+          
+          if (!studentSnapshot.empty) {
+            const child = studentSnapshot.docs[0];
+            await setDoc(doc(db, "parentChildLinks", `${userId}_${child.id}`), {
+              parentId: userId,
+              childId: child.id,
+              childName: child.data().name,
+              childRollNo: childRollNo,
+              linkedAt: Timestamp.now()
+            });
+            alert(`Child ${child.data().name} linked successfully!`);
+          } else {
+            alert('Child not found with that roll number. You can link your child later from the dashboard.');
+          }
+        }
+        
+        alert(`Account created successfully as ${role.toUpperCase()}! Please login.`);
         closeSignupModal();
         showLoginScreen();
-        return;
+      } catch (error) {
+        alert('Signup error: ' + error.message);
       }
-      
-      const newUser = {
-        id: Date.now(),
-        name: name,
-        email: email,
-        password: password,
-        role: role,
-        createdAt: new Date().toISOString()
-      };
-      
-      if (role === 'student') {
-        newUser.rollNo = rollNo;
-        newUser.class = className;
-      }
-      
-      db.users.push(newUser);
-      
-      if (role === 'parent' && childRollNo) {
-        const child = db.users.find(u => u.role === 'student' && u.rollNo === childRollNo);
-        if (child) {
-          db.parentChildLinks.push({
-            id: Date.now(),
-            parentId: newUser.id,
-            childId: child.id,
-            childName: child.name,
-            childRollNo: child.rollNo,
-            linkedAt: new Date().toISOString()
-          });
-          alert(`Child ${child.name} linked successfully!`);
-        } else {
-          alert('Child not found with that roll number. You can link your child later from the dashboard.');
-        }
-      }
-      
-      saveToLocalStorage();
-      alert(`Account created successfully as ${role.toUpperCase()}! Please login.`);
-      closeSignupModal();
-      showLoginScreen();
     });
     
-    function showLoginScreen() {
+    window.showLoginScreen = function() {
       document.getElementById('welcomeContainer').style.display = 'none';
       document.getElementById('loginContainer').style.display = 'flex';
-    }
+    };
     
-    function showWelcomeScreen() {
+    window.showWelcomeScreen = function() {
       document.getElementById('loginContainer').style.display = 'none';
       document.getElementById('welcomeContainer').style.display = 'flex';
-    }
+    };
     
-    document.getElementById('loginForm')?.addEventListener('submit', (e) => {
+    document.getElementById('loginForm')?.addEventListener('submit', async (e) => {
       e.preventDefault();
       const email = document.getElementById('loginEmail').value;
       const password = document.getElementById('loginPassword').value;
       
-      const user = db.users.find(u => u.email === email && u.password === password);
-      
-      if (user) {
-        currentUser = user;
-        localStorage.setItem('attendify_current_user', JSON.stringify(currentUser));
-        showApp();
-      } else {
-        alert('Invalid email or password! Please create an account first.');
+      try {
+        const userCredential = await signInWithEmailAndPassword(auth, email, password);
+        const userDoc = await getDoc(doc(db, "users", userCredential.user.uid));
+        
+        if (userDoc.exists()) {
+          currentUser = { uid: userCredential.user.uid, ...userDoc.data() };
+          showApp();
+        } else {
+          alert('User data not found!');
+        }
+      } catch (error) {
+        alert('Login failed: ' + error.message);
       }
     });
     
@@ -888,6 +944,9 @@
       badge.innerText = `Role: ${currentUser.role.toUpperCase()}`;
       badge.className = `badge badge-${currentUser.role}`;
       
+      // Setup real-time announcements listener
+      setupAnnouncementsListener();
+      
       if (currentUser.role === 'student') {
         loadStudentDashboard();
       } else if (currentUser.role === 'teacher') {
@@ -897,20 +956,59 @@
       }
     }
     
-    function logout() {
-      currentUser = null;
-      localStorage.removeItem('attendify_current_user');
-      document.getElementById('appContainer').style.display = 'none';
-      document.getElementById('welcomeContainer').style.display = 'flex';
+    function setupAnnouncementsListener() {
+      if (announcementsUnsubscribe) {
+        announcementsUnsubscribe();
+      }
+      
+      const q = query(collection(db, "announcements"), orderBy("createdAt", "desc"));
+      announcementsUnsubscribe = onSnapshot(q, (snapshot) => {
+        window.liveAnnouncements = [];
+        snapshot.forEach(doc => {
+          window.liveAnnouncements.push({ id: doc.id, ...doc.data() });
+        });
+        
+        // Refresh dashboard if currently on student or parent view
+        if (currentUser && document.getElementById('appContainer').style.display === 'block') {
+          if (currentUser.role === 'student') {
+            loadStudentDashboard();
+          } else if (currentUser.role === 'parent') {
+            loadParentDashboard();
+          } else if (currentUser.role === 'teacher') {
+            // For teacher, also refresh announcements section
+            const announcementsSection = document.getElementById('teacherAnnouncementsSection');
+            if (announcementsSection) {
+              loadTeacherDashboard();
+            }
+          }
+        }
+      });
     }
     
-    // Student Dashboard
-    function loadStudentDashboard() {
-      const studentAttendance = db.attendance.filter(a => a.studentId === currentUser.id);
-      const totalDays = studentAttendance.length;
-      const presentDays = studentAttendance.filter(a => a.status === 'present').length;
+    window.logout = async function() {
+      await signOut(auth);
+      if (announcementsUnsubscribe) {
+        announcementsUnsubscribe();
+      }
+      currentUser = null;
+      document.getElementById('appContainer').style.display = 'none';
+      document.getElementById('welcomeContainer').style.display = 'flex';
+    };
+    
+    async function loadStudentDashboard() {
+      const attendanceQuery = query(collection(db, "attendance"), where("studentId", "==", currentUser.uid));
+      const attendanceSnapshot = await getDocs(attendanceQuery);
+      const attendanceRecords = attendanceSnapshot.docs.map(doc => doc.data());
+      
+      const totalDays = attendanceRecords.length;
+      const presentDays = attendanceRecords.filter(a => a.status === 'present').length;
       const attendancePercent = totalDays ? ((presentDays / totalDays) * 100).toFixed(1) : 100;
-      const studentLeaves = db.leaves.filter(l => l.studentId === currentUser.id);
+      
+      const leavesQuery = query(collection(db, "leaves"), where("studentId", "==", currentUser.uid), orderBy("appliedAt", "desc"));
+      const leavesSnapshot = await getDocs(leavesQuery);
+      const studentLeaves = leavesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      
+      const announcements = window.liveAnnouncements || [];
       
       const dashboard = document.getElementById('dashboardContent');
       dashboard.innerHTML = `
@@ -951,8 +1049,8 @@
         <div class="announcement-area">
           <h3><i class="fas fa-megaphone"></i> Latest Announcements</h3>
           <ul class="announcement-list">
-            ${db.announcements.slice(0, 3).map(a => `
-              <li><i class="fas fa-bullhorn" style="color:#2563eb;"></i><div><strong>${a.title}</strong><br><small>${a.content}</small><br><small style="color:#64748b;">📅 ${a.date}</small></div></li>
+            ${announcements.slice(0, 5).map(a => `
+              <li><i class="fas fa-bullhorn" style="color:#2563eb;"></i><div><strong>${a.title}</strong><br><small>${a.content}</small><br><small style="color:#64748b;">📅 ${new Date(a.createdAt?.toDate()).toLocaleDateString() || 'Recent'}</small></div></li>
             `).join('') || '<li style="color:#64748b;">No announcements yet</li>'}
           </ul>
         </div>
@@ -968,12 +1066,22 @@
       `;
     }
     
-    // Teacher Dashboard
-    function loadTeacherDashboard() {
-      const students = db.users.filter(u => u.role === 'student');
+    async function loadTeacherDashboard() {
+      const studentsQuery = query(collection(db, "users"), where("role", "==", "student"));
+      const studentsSnapshot = await getDocs(studentsQuery);
+      const students = studentsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      
       const today = new Date().toISOString().split('T')[0];
-      const presentToday = db.attendance.filter(a => a.date === today && a.status === 'present').length;
+      const attendanceQuery = query(collection(db, "attendance"), where("date", "==", today));
+      const attendanceSnapshot = await getDocs(attendanceQuery);
+      const presentToday = attendanceSnapshot.size;
       const attendancePercent = students.length ? ((presentToday / students.length) * 100).toFixed(1) : 0;
+      
+      const recentAttendanceQuery = query(collection(db, "attendance"), orderBy("timestamp", "desc"), limit(5));
+      const recentAttendanceSnapshot = await getDocs(recentAttendanceQuery);
+      const recentAttendance = recentAttendanceSnapshot.docs.map(doc => doc.data());
+      
+      const announcements = window.liveAnnouncements || [];
       
       const dashboard = document.getElementById('dashboardContent');
       dashboard.innerHTML = `
@@ -989,10 +1097,10 @@
             <h3>QR Code Scanner</h3>
             <p>Scan student QR codes to mark attendance instantly</p>
           </div>
-          <div class="feature-card" onclick="viewAnnouncements()">
-            <div class="feature-icon"><i class="fas fa-bullhorn"></i></div>
-            <h3>Announcements</h3>
-            <p>View school announcements</p>
+          <div class="feature-card" onclick="showCreateAnnouncementModal()">
+            <div class="feature-icon"><i class="fas fa-edit"></i></div>
+            <h3>Create Announcement</h3>
+            <p>Post announcements for students and parents</p>
           </div>
           <div class="feature-card" onclick="viewAllLeaveApplications()">
             <div class="feature-icon"><i class="fas fa-file-alt"></i></div>
@@ -1011,10 +1119,19 @@
           </div>
         </div>
         
+        <div class="announcement-area" id="teacherAnnouncementsSection">
+          <h3><i class="fas fa-bullhorn"></i> Recent Announcements</h3>
+          <ul class="announcement-list">
+            ${announcements.slice(0, 5).map(a => `
+              <li><i class="fas fa-bullhorn" style="color:#2563eb;"></i><div><strong>${a.title}</strong><br><small>${a.content}</small><br><small style="color:#64748b;">Posted by ${a.postedBy || 'Teacher'} on ${new Date(a.createdAt?.toDate()).toLocaleDateString()}</small></div></li>
+            `).join('') || '<li style="color:#64748b;">No announcements yet. Create one above!</li>'}
+          </ul>
+        </div>
+        
         <div class="announcement-area">
           <h3><i class="fas fa-clock"></i> Recent Activity</h3>
           <ul class="announcement-list">
-            ${db.attendance.slice(0, 5).map(a => `
+            ${recentAttendance.map(a => `
               <li><i class="fas fa-qrcode" style="color:#10b981;"></i> ${a.studentName} marked ${a.status} at ${a.time || 'N/A'} on ${a.date}</li>
             `).join('') || '<li>No recent activity</li>'}
           </ul>
@@ -1022,102 +1139,87 @@
       `;
     }
     
-    // Parent Dashboard
-    function loadParentDashboard() {
-      const linkedChildren = db.parentChildLinks.filter(link => link.parentId === currentUser.id);
-      const childrenIds = linkedChildren.map(link => link.childId);
-      const children = db.users.filter(u => childrenIds.includes(u.id));
+    async function loadParentDashboard() {
+      const linksQuery = query(collection(db, "parentChildLinks"), where("parentId", "==", currentUser.uid));
+      const linksSnapshot = await getDocs(linksQuery);
+      const links = linksSnapshot.docs.map(doc => doc.data());
       
-      let totalPresent = 0;
-      let totalDays = 0;
-      const childrenData = [];
+      let childrenHtml = '<div class="children-list"><h3><i class="fas fa-child"></i> My Children</h3><div class="children-list-items">';
       
-      children.forEach(child => {
-        const childAttendance = db.attendance.filter(a => a.studentId === child.id);
-        const present = childAttendance.filter(a => a.status === 'present').length;
-        const total = childAttendance.length;
-        const percent = total ? ((present/total)*100).toFixed(1) : 0;
-        
-        totalPresent += present;
-        totalDays += total;
-        childrenData.push({
-          ...child,
-          present: present,
-          total: total,
-          percent: percent,
-          recentAttendance: [...childAttendance].sort((a,b) => new Date(b.date) - new Date(a.date)).slice(0, 3)
-        });
-      });
-      
-      const overallPercent = totalDays ? ((totalPresent/totalDays)*100).toFixed(1) : 0;
-      
-      const dashboard = document.getElementById('dashboardContent');
-      
-      if (children.length === 0) {
-        dashboard.innerHTML = `
-          <div class="stats-grid">
-            <div class="stat-card"><h3><i class="fas fa-child"></i> Linked Children</h3><div class="stat-number">0</div></div>
-          </div>
-          <div class="announcement-area" style="text-align: center;">
+      if (links.length === 0) {
+        childrenHtml += `
+          <div style="text-align: center; padding: 2rem;">
             <i class="fas fa-child" style="font-size: 4rem; color: #2563eb; margin-bottom: 1rem; display: block;"></i>
             <h3>No Children Linked Yet</h3>
             <p style="margin: 1rem 0;">Link your child using their roll number to view their attendance</p>
             <button class="btn-primary" onclick="showLinkChildModal()" style="width: auto; padding: 0.75rem 1.5rem;">Link Child</button>
           </div>
-          <div class="features-grid">
-            <div class="feature-card" onclick="viewAnnouncements()">
-              <div class="feature-icon"><i class="fas fa-bullhorn"></i></div>
-              <h3>Announcements</h3>
-              <p>School announcements</p>
-            </div>
-            <div class="feature-card" onclick="showHelpSupport()">
-              <div class="feature-icon"><i class="fas fa-headset"></i></div>
-              <h3>Help & Support</h3>
-              <p>Parent support resources</p>
-            </div>
-          </div>
         `;
-        return;
+      } else {
+        let totalPresent = 0;
+        let totalDays = 0;
+        
+        for (const link of links) {
+          const attendanceQuery = query(collection(db, "attendance"), where("studentId", "==", link.childId));
+          const attendanceSnapshot = await getDocs(attendanceQuery);
+          const attendanceRecords = attendanceSnapshot.docs.map(doc => doc.data());
+          const present = attendanceRecords.filter(a => a.status === 'present').length;
+          const total = attendanceRecords.length;
+          const percent = total ? ((present/total)*100).toFixed(1) : 0;
+          
+          totalPresent += present;
+          totalDays += total;
+          
+          const recentAttendance = [...attendanceRecords].sort((a,b) => new Date(b.date) - new Date(a.date)).slice(0, 3);
+          
+          const childDoc = await getDoc(doc(db, "users", link.childId));
+          const childData = childDoc.data();
+          
+          childrenHtml += `
+            <div class="child-card">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                <div>
+                  <strong style="font-size: 1.1rem;">${link.childName}</strong>
+                  <br>
+                  <small style="color: #64748b;">Roll No: ${link.childRollNo} | Class: ${childData?.class || 'N/A'}</small>
+                </div>
+                <span class="status-badge" style="background: ${percent >= 75 ? '#dcfce7' : '#fed7aa'}; color: ${percent >= 75 ? '#166534' : '#9a3412'}">
+                  ${percent}% Attendance
+                </span>
+              </div>
+              <div style="display: flex; gap: 1rem; margin-top: 10px;">
+                <div><small>📊 Present: ${present}/${total}</small></div>
+                <div><small>✅ Last 3 days:</small></div>
+              </div>
+              <div style="margin-top: 8px;">
+                ${recentAttendance.map(a => `
+                  <span style="display: inline-block; padding: 2px 8px; margin: 2px; border-radius: 12px; font-size: 0.7rem; background: ${a.status === 'present' ? '#dcfce7' : '#fee2e2'}; color: ${a.status === 'present' ? '#166534' : '#991b1b'}">
+                    ${a.date.split('-').slice(1).join('/')}: ${a.status}
+                  </span>
+                `).join('') || '<small>No records yet</small>'}
+              </div>
+              <button class="btn-secondary" onclick="viewChildDetails('${link.childId}')" style="margin-top: 10px; padding: 6px 12px; font-size: 0.8rem; width: auto;">View Full Details</button>
+            </div>
+          `;
+        }
+        
+        const overallPercent = totalDays ? ((totalPresent/totalDays)*100).toFixed(1) : 0;
+        
+        childrenHtml = `
+          <div class="stats-grid" style="margin-bottom: 1.5rem;">
+            <div class="stat-card"><h3><i class="fas fa-child"></i> My Children</h3><div class="stat-number">${links.length}</div></div>
+            <div class="stat-card"><h3><i class="fas fa-check-circle"></i> Overall Present</h3><div class="stat-number">${totalPresent}/${totalDays}</div></div>
+            <div class="stat-card"><h3><i class="fas fa-chart-line"></i> Overall Rate</h3><div class="stat-number">${overallPercent}%</div></div>
+          </div>
+          ${childrenHtml}
+        `;
+        childrenHtml += '</div></div>';
       }
       
-      let childrenHtml = '<div class="children-list"><h3><i class="fas fa-child"></i> My Children</h3><div class="children-list-items">';
-      childrenData.forEach(child => {
-        childrenHtml += `
-          <div class="child-card">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-              <div>
-                <strong style="font-size: 1.1rem;">${child.name}</strong>
-                <br>
-                <small style="color: #64748b;">Roll No: ${child.rollNo} | Class: ${child.class}</small>
-              </div>
-              <span class="status-badge" style="background: ${child.percent >= 75 ? '#dcfce7' : '#fed7aa'}; color: ${child.percent >= 75 ? '#166534' : '#9a3412'}">
-                ${child.percent}% Attendance
-              </span>
-            </div>
-            <div style="display: flex; gap: 1rem; margin-top: 10px;">
-              <div><small>📊 Present: ${child.present}/${child.total}</small></div>
-              <div><small>✅ Last 3 days:</small></div>
-            </div>
-            <div style="margin-top: 8px;">
-              ${child.recentAttendance.map(a => `
-                <span style="display: inline-block; padding: 2px 8px; margin: 2px; border-radius: 12px; font-size: 0.7rem; background: ${a.status === 'present' ? '#dcfce7' : '#fee2e2'}; color: ${a.status === 'present' ? '#166534' : '#991b1b'}">
-                  ${a.date.split('-').slice(1).join('/')}: ${a.status}
-                </span>
-              `).join('') || '<small>No records yet</small>'}
-            </div>
-            <button class="btn-secondary" onclick="viewChildDetails(${child.id})" style="margin-top: 10px; padding: 6px 12px; font-size: 0.8rem; width: auto;">View Full Details</button>
-          </div>
-        `;
-      });
-      childrenHtml += '</div></div>';
+      const announcements = window.liveAnnouncements || [];
       
+      const dashboard = document.getElementById('dashboardContent');
       dashboard.innerHTML = `
-        <div class="stats-grid">
-          <div class="stat-card"><h3><i class="fas fa-child"></i> My Children</h3><div class="stat-number">${children.length}</div></div>
-          <div class="stat-card"><h3><i class="fas fa-check-circle"></i> Overall Present</h3><div class="stat-number">${totalPresent}/${totalDays}</div></div>
-          <div class="stat-card"><h3><i class="fas fa-chart-line"></i> Overall Rate</h3><div class="stat-number">${overallPercent}%</div></div>
-        </div>
-        
         ${childrenHtml}
         
         <div class="features-grid">
@@ -1141,16 +1243,16 @@
         <div class="announcement-area">
           <h3><i class="fas fa-megaphone"></i> Latest Announcements</h3>
           <ul class="announcement-list">
-            ${db.announcements.slice(0, 3).map(a => `
-              <li><i class="fas fa-bullhorn" style="color:#2563eb;"></i><div><strong>${a.title}</strong><br><small>${a.content}</small><br><small style="color:#64748b;">📅 ${a.date}</small></div></li>
+            ${announcements.slice(0, 5).map(a => `
+              <li><i class="fas fa-bullhorn" style="color:#2563eb;"></i><div><strong>${a.title}</strong><br><small>${a.content}</small><br><small style="color:#64748b;">📅 ${new Date(a.createdAt?.toDate()).toLocaleDateString() || 'Recent'}</small></div></li>
             `).join('') || '<li style="color:#64748b;">No announcements yet</li>'}
           </ul>
         </div>
       `;
     }
     
-    // QR Scanner Functions for Teacher
-    async function openQRScanner() {
+    // QR Scanner Functions
+    window.openQRScanner = async function() {
       document.getElementById('qrScannerModal').style.display = 'flex';
       document.getElementById('scannerStatus').innerHTML = '';
       document.getElementById('manualStudentId').value = '';
@@ -1173,132 +1275,91 @@
         console.error("Error initializing scanner:", err);
         document.getElementById('scannerStatus').innerHTML = '<div class="scanner-status error">Camera access denied. Please use manual entry.</div>';
       }
-    }
+    };
     
     async function startScanner(cameraId) {
       if (!html5QrCode) return;
       
       await html5QrCode.start(
         cameraId,
-        {
-          fps: 10,
-          qrbox: { width: 250, height: 250 }
+        { fps: 10, qrbox: { width: 250, height: 250 } },
+        async (decodedText) => {
+          await processScannedQR(decodedText);
         },
-        (decodedText, decodedResult) => {
-          // QR Code successfully scanned
-          processScannedQR(decodedText);
-        },
-        (errorMessage) => {
-          // Scanning in progress, ignore errors
-          console.log("Scanning...");
-        }
+        (errorMessage) => {}
       );
     }
     
-    function processScannedQR(scannedData) {
-      // Stop scanner after successful scan
+    async function processScannedQR(scannedData) {
       if (html5QrCode) {
-        html5QrCode.stop();
+        await html5QrCode.stop();
       }
       
-      // QR code should contain student ID or roll number
-      const student = db.users.find(u => 
-        (u.role === 'student') && 
-        (u.id.toString() === scannedData || u.rollNo === scannedData)
+      const studentsQuery = query(collection(db, "users"), where("role", "==", "student"));
+      const studentsSnapshot = await getDocs(studentsQuery);
+      const student = studentsSnapshot.docs.find(doc => 
+        doc.data().rollNo === scannedData || doc.id === scannedData
       );
       
       if (student) {
-        markAttendance(student.id, student.name);
+        await markAttendance(student.id, student.data().name);
       } else {
         document.getElementById('scannerStatus').innerHTML = `<div class="scanner-status error">Student not found: ${scannedData}</div>`;
-        // Restart scanner after 2 seconds
         setTimeout(() => {
           if (currentCameraId) startScanner(currentCameraId);
         }, 2000);
       }
     }
     
-    function markAttendance(studentId, studentName) {
+    async function markAttendance(studentId, studentName) {
       const today = new Date().toISOString().split('T')[0];
-      const existing = db.attendance.find(a => a.studentId === studentId && a.date === today);
+      const existingQuery = query(collection(db, "attendance"), where("studentId", "==", studentId), where("date", "==", today));
+      const existingSnapshot = await getDocs(existingQuery);
       
-      if (existing) {
+      if (!existingSnapshot.empty) {
         document.getElementById('scannerStatus').innerHTML = `<div class="scanner-status error">${studentName} already marked present today!</div>`;
       } else {
-        db.attendance.push({
-          id: Date.now(),
+        await addDoc(collection(db, "attendance"), {
           studentId: studentId,
           studentName: studentName,
           date: today,
           status: 'present',
           time: new Date().toLocaleTimeString(),
-          markedBy: currentUser.name
+          markedBy: currentUser.name,
+          timestamp: Timestamp.now()
         });
-        saveToLocalStorage();
+        
         document.getElementById('scannerStatus').innerHTML = `<div class="scanner-status success">✅ Attendance marked for ${studentName}</div>`;
-        
-        // Add notification for parent
-        const parentLink = db.parentChildLinks.find(link => link.childId === studentId);
-        if (parentLink) {
-          db.notifications.push({
-            id: Date.now(),
-            userId: parentLink.parentId,
-            message: `Your child ${studentName} was marked present on ${today} at ${new Date().toLocaleTimeString()}`,
-            date: new Date().toLocaleString(),
-            read: false
-          });
-          saveToLocalStorage();
-        }
-        
-        // Refresh teacher dashboard
         loadTeacherDashboard();
         
-        // Auto close after 2 seconds
         setTimeout(() => {
           stopScannerAndClose();
         }, 2000);
       }
     }
     
-    function markManualAttendance() {
+    window.markManualAttendance = async function() {
       const studentId = document.getElementById('manualStudentId').value.trim();
       if (!studentId) {
         alert('Please enter Student ID or Roll Number');
         return;
       }
       
-      const student = db.users.find(u => 
-        (u.role === 'student') && 
-        (u.id.toString() === studentId || u.rollNo === studentId)
+      const studentsQuery = query(collection(db, "users"), where("role", "==", "student"));
+      const studentsSnapshot = await getDocs(studentsQuery);
+      const student = studentsSnapshot.docs.find(doc => 
+        doc.data().rollNo === studentId || doc.id === studentId
       );
       
       if (student) {
-        const today = new Date().toISOString().split('T')[0];
-        const existing = db.attendance.find(a => a.studentId === student.id && a.date === today);
-        
-        if (existing) {
-          alert(`${student.name} already marked present today!`);
-        } else {
-          db.attendance.push({
-            id: Date.now(),
-            studentId: student.id,
-            studentName: student.name,
-            date: today,
-            status: 'present',
-            time: new Date().toLocaleTimeString(),
-            markedBy: currentUser.name
-          });
-          saveToLocalStorage();
-          alert(`✅ Attendance marked for ${student.name}`);
-          document.getElementById('manualStudentId').value = '';
-          loadTeacherDashboard();
-        }
+        await markAttendance(student.id, student.data().name);
+        document.getElementById('manualStudentId').value = '';
       } else {
         alert('Student not found! Please check the ID/Roll Number.');
       }
-    }
+    };
     
-    async function switchCamera() {
+    window.switchCamera = async function() {
       try {
         const cameras = await Html5Qrcode.getCameras();
         if (cameras && cameras.length > 1) {
@@ -1316,72 +1377,268 @@
       } catch (err) {
         console.error("Error switching camera:", err);
       }
-    }
+    };
     
-    async function stopScannerAndClose() {
+    window.stopScannerAndClose = async function() {
       if (html5QrCode) {
         try {
           await html5QrCode.stop();
-        } catch (e) {
-          console.log("Scanner already stopped");
-        }
+        } catch (e) {}
       }
       document.getElementById('qrScannerModal').style.display = 'none';
       document.getElementById('scannerStatus').innerHTML = '';
-    }
+    };
     
-    // Link Child Functions
-    function showLinkChildModal() {
+    // Announcement Functions
+    window.showCreateAnnouncementModal = function() {
+      if (currentUser.role !== 'teacher') {
+        alert('Only teachers can create announcements');
+        return;
+      }
+      document.getElementById('createAnnouncementModal').style.display = 'flex';
+      document.getElementById('createAnnouncementForm').reset();
+    };
+    
+    window.closeCreateAnnouncementModal = function() {
+      document.getElementById('createAnnouncementModal').style.display = 'none';
+    };
+    
+    document.getElementById('createAnnouncementForm')?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const title = document.getElementById('announcementTitle').value;
+      const content = document.getElementById('announcementContent').value;
+      
+      if (currentUser.role !== 'teacher') {
+        alert('Only teachers can post announcements');
+        return;
+      }
+      
+      await addDoc(collection(db, "announcements"), {
+        title: title,
+        content: content,
+        postedBy: currentUser.name,
+        postedById: currentUser.uid,
+        createdAt: Timestamp.now()
+      });
+      
+      alert('Announcement posted successfully!');
+      closeCreateAnnouncementModal();
+      loadTeacherDashboard();
+    });
+    
+    // View Functions
+    window.viewAnnouncements = function() {
+      const announcements = window.liveAnnouncements || [];
+      const announcementList = document.getElementById('announcementList');
+      
+      if (announcements.length === 0) {
+        announcementList.innerHTML = '<div style="padding: 12px; text-align: center; color: #64748b;">No announcements yet</div>';
+      } else {
+        announcementList.innerHTML = announcements.map(a => `
+          <div class="announcement-item">
+            <strong>${a.title}</strong><br>
+            <small>${a.content}</small><br>
+            <div class="announcement-date">Posted by ${a.postedBy || 'Teacher'} on ${new Date(a.createdAt?.toDate()).toLocaleString()}</div>
+          </div>
+        `).join('');
+      }
+      document.getElementById('announcementModal').style.display = 'flex';
+    };
+    
+    window.closeAnnouncementModal = function() {
+      document.getElementById('announcementModal').style.display = 'none';
+    };
+    
+    window.showQRCode = function() {
+      const qrData = currentUser.rollNo || currentUser.uid;
+      document.getElementById('qrStudentId').innerHTML = `${qrData}<br>${currentUser.name}<br>${currentUser.class || ''}`;
+      document.getElementById('qrModal').style.display = 'flex';
+    };
+    
+    window.closeQRModal = function() {
+      document.getElementById('qrModal').style.display = 'none';
+    };
+    
+    window.viewAttendanceHistory = async function() {
+      const attendanceQuery = query(collection(db, "attendance"), where("studentId", "==", currentUser.uid), orderBy("date", "desc"));
+      const attendanceSnapshot = await getDocs(attendanceQuery);
+      const records = attendanceSnapshot.docs.map(doc => doc.data());
+      
+      let html = '<div style="max-height: 400px; overflow-y: auto;">';
+      if (records.length === 0) {
+        html += '<div style="padding: 20px; text-align: center; color: #64748b;">No attendance records yet</div>';
+      } else {
+        records.forEach(a => {
+          html += `<div style="padding: 10px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between;">
+            <span>${a.date}</span>
+            <span style="color: ${a.status === 'present' ? '#10b981' : '#ef4444'}">${a.status.toUpperCase()}</span>
+            <span>${a.time || '-'}</span>
+          </div>`;
+        });
+      }
+      html += '</div>';
+      
+      const modal = document.createElement('div');
+      modal.className = 'modal';
+      modal.style.display = 'flex';
+      modal.innerHTML = `<div class="modal-content"><h3>Attendance History</h3>${html}<button class="btn-secondary" onclick="this.closest('.modal').remove()">Close</button></div>`;
+      document.body.appendChild(modal);
+    };
+    
+    window.showLeaveModal = function() {
+      document.getElementById('leaveModal').style.display = 'flex';
+      document.getElementById('leaveApplicationForm').reset();
+    };
+    
+    window.closeLeaveModal = function() {
+      document.getElementById('leaveModal').style.display = 'none';
+    };
+    
+    document.getElementById('leaveApplicationForm')?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const fromDate = document.getElementById('leaveFromDate').value;
+      const toDate = document.getElementById('leaveToDate').value;
+      const reason = document.getElementById('leaveReason').value;
+      
+      await addDoc(collection(db, "leaves"), {
+        studentId: currentUser.uid,
+        studentName: currentUser.name,
+        rollNo: currentUser.rollNo || '',
+        fromDate: fromDate,
+        toDate: toDate,
+        reason: reason,
+        status: 'pending',
+        appliedAt: Timestamp.now()
+      });
+      
+      alert('Leave application submitted successfully!');
+      closeLeaveModal();
+      loadStudentDashboard();
+    });
+    
+    window.viewAllLeaveApplications = async function() {
+      const leavesQuery = query(collection(db, "leaves"), orderBy("appliedAt", "desc"));
+      const leavesSnapshot = await getDocs(leavesQuery);
+      const leaves = leavesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      
+      let html = '<div style="max-height: 400px; overflow-y: auto;">';
+      if (leaves.length === 0) {
+        html += '<div style="padding: 20px; text-align: center; color: #64748b;">No leave applications yet</div>';
+      } else {
+        leaves.forEach(l => {
+          html += `<div style="padding: 12px; border-bottom: 1px solid #e2e8f0;">
+            <strong>${l.studentName}</strong> (${l.rollNo || 'N/A'})<br>
+            📅 ${l.fromDate} to ${l.toDate}<br>
+            📝 ${l.reason}<br>
+            <span class="status-badge status-${l.status}">${l.status.toUpperCase()}</span>
+          </div>`;
+        });
+      }
+      html += '</div>';
+      
+      const modal = document.createElement('div');
+      modal.className = 'modal';
+      modal.style.display = 'flex';
+      modal.innerHTML = `<div class="modal-content"><h3>Leave Applications</h3>${html}<button class="btn-secondary" onclick="this.closest('.modal').remove()">Close</button></div>`;
+      document.body.appendChild(modal);
+    };
+    
+    window.viewAttendanceReport = async function() {
+      const studentsQuery = query(collection(db, "users"), where("role", "==", "student"));
+      const studentsSnapshot = await getDocs(studentsQuery);
+      
+      let html = '<div style="max-height: 400px; overflow-y: auto;"><table style="width:100%"><thead><tr><th>Student</th><th>Present</th><th>Total</th><th>%</th></tr></thead><tbody>';
+      
+      for (const studentDoc of studentsSnapshot.docs) {
+        const student = studentDoc.data();
+        const attendanceQuery = query(collection(db, "attendance"), where("studentId", "==", studentDoc.id));
+        const attendanceSnapshot = await getDocs(attendanceQuery);
+        const present = attendanceSnapshot.docs.filter(d => d.data().status === 'present').length;
+        const total = attendanceSnapshot.size;
+        const percent = total ? ((present/total)*100).toFixed(1) : 0;
+        html += `<tr><td>${student.name}</td><td>${present}</td><td>${total}</td><td>${percent}%</td></tr>`;
+      }
+      
+      html += '</tbody></table></div>';
+      
+      const modal = document.createElement('div');
+      modal.className = 'modal';
+      modal.style.display = 'flex';
+      modal.innerHTML = `<div class="modal-content"><h3>Attendance Report</h3>${html}<button class="btn-secondary" onclick="this.closest('.modal').remove()">Close</button></div>`;
+      document.body.appendChild(modal);
+    };
+    
+    window.showHelpSupport = function() {
+      document.getElementById('helpModal').style.display = 'flex';
+    };
+    
+    window.closeHelpModal = function() {
+      document.getElementById('helpModal').style.display = 'none';
+    };
+    
+    window.showNotifications = function() {
+      alert('🔔 Notification Alerts\n\nYou will receive real-time notifications when your child\'s attendance is marked.');
+    };
+    
+    window.showLinkChildModal = function() {
       document.getElementById('linkChildModal').style.display = 'flex';
       document.getElementById('linkChildRollNo').value = '';
-    }
+    };
     
-    function closeLinkChildModal() {
+    window.closeLinkChildModal = function() {
       document.getElementById('linkChildModal').style.display = 'none';
-    }
+    };
     
-    function linkChild() {
+    window.linkChild = async function() {
       const rollNo = document.getElementById('linkChildRollNo').value.trim();
       if (!rollNo) {
         alert('Please enter your child\'s roll number');
         return;
       }
       
-      const child = db.users.find(u => u.role === 'student' && u.rollNo === rollNo);
-      if (!child) {
+      const studentsQuery = query(collection(db, "users"), where("rollNo", "==", rollNo), where("role", "==", "student"));
+      const studentSnapshot = await getDocs(studentsQuery);
+      
+      if (studentSnapshot.empty) {
         alert('No student found with this roll number. Please check and try again.');
         return;
       }
       
-      const alreadyLinked = db.parentChildLinks.some(link => link.parentId === currentUser.id && link.childId === child.id);
-      if (alreadyLinked) {
-        alert(`${child.name} is already linked to your account.`);
+      const child = studentSnapshot.docs[0];
+      const childData = child.data();
+      
+      const existingQuery = query(collection(db, "parentChildLinks"), where("parentId", "==", currentUser.uid), where("childId", "==", child.id));
+      const existingSnapshot = await getDocs(existingQuery);
+      
+      if (!existingSnapshot.empty) {
+        alert(`${childData.name} is already linked to your account.`);
         closeLinkChildModal();
         return;
       }
       
-      db.parentChildLinks.push({
-        id: Date.now(),
-        parentId: currentUser.id,
+      await setDoc(doc(db, "parentChildLinks", `${currentUser.uid}_${child.id}`), {
+        parentId: currentUser.uid,
         childId: child.id,
-        childName: child.name,
-        childRollNo: child.rollNo,
-        linkedAt: new Date().toISOString()
+        childName: childData.name,
+        childRollNo: rollNo,
+        linkedAt: Timestamp.now()
       });
-      saveToLocalStorage();
       
-      alert(`Successfully linked ${child.name} (${child.rollNo}) to your account!`);
+      alert(`Successfully linked ${childData.name} (${rollNo}) to your account!`);
       closeLinkChildModal();
       loadParentDashboard();
-    }
+    };
     
-    function viewChildDetails(childId) {
-      const child = db.users.find(u => u.id === childId);
-      if (!child) return;
+    window.viewChildDetails = async function(childId) {
+      const childDoc = await getDoc(doc(db, "users", childId));
+      if (!childDoc.exists()) return;
       
-      const childAttendance = db.attendance.filter(a => a.studentId === childId);
-      const present = childAttendance.filter(a => a.status === 'present').length;
-      const total = childAttendance.length;
+      const child = childDoc.data();
+      const attendanceQuery = query(collection(db, "attendance"), where("studentId", "==", childId), orderBy("date", "desc"));
+      const attendanceSnapshot = await getDocs(attendanceQuery);
+      const attendanceRecords = attendanceSnapshot.docs.map(doc => doc.data());
+      const present = attendanceRecords.filter(a => a.status === 'present').length;
+      const total = attendanceRecords.length;
       const percent = total ? ((present/total)*100).toFixed(1) : 0;
       
       let historyHtml = `<div style="max-height: 400px; overflow-y: auto;">
@@ -1392,7 +1649,7 @@
         </div>
         <h4>Attendance History</h4>`;
       
-      childAttendance.sort((a,b) => new Date(b.date) - new Date(a.date)).forEach(a => {
+      attendanceRecords.forEach(a => {
         historyHtml += `<div style="padding: 10px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between;">
           <span>${a.date}</span>
           <span style="color: ${a.status === 'present' ? '#10b981' : '#ef4444'}">${a.status.toUpperCase()}</span>
@@ -1406,171 +1663,18 @@
       modal.style.display = 'flex';
       modal.innerHTML = `<div class="modal-content"><h3>Child Details: ${child.name}</h3>${historyHtml}<button class="btn-secondary" onclick="this.closest('.modal').remove()">Close</button></div>`;
       document.body.appendChild(modal);
-    }
+    };
     
-    // Common Functions
-    function showQRCode() {
-      document.getElementById('qrStudentId').innerHTML = `${currentUser.rollNo}<br>${currentUser.name}<br>${currentUser.class}`;
-      document.getElementById('qrModal').style.display = 'flex';
-    }
-    
-    function closeQRModal() { document.getElementById('qrModal').style.display = 'none'; }
-    
-    function viewAnnouncements() {
-      const announcementList = document.getElementById('announcementList');
-      if (db.announcements.length === 0) {
-        announcementList.innerHTML = '<div style="padding: 12px; text-align: center; color: #64748b;">No announcements yet</div>';
-      } else {
-        announcementList.innerHTML = db.announcements.map(a => `
-          <div style="padding: 12px; border-bottom: 1px solid #e2e8f0;">
-            <strong>${a.title}</strong><br>
-            <small>${a.content}</small><br>
-            <small style="color: #64748b;">📅 ${a.date}</small>
-          </div>
-        `).join('');
+    // Auth state listener
+    onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        const userDoc = await getDoc(doc(db, "users", user.uid));
+        if (userDoc.exists()) {
+          currentUser = { uid: user.uid, ...userDoc.data() };
+          showApp();
+        }
       }
-      document.getElementById('announcementModal').style.display = 'flex';
-    }
-    
-    function closeAnnouncementModal() { document.getElementById('announcementModal').style.display = 'none'; }
-    
-    function viewAttendanceHistory() {
-      const studentAttendance = db.attendance.filter(a => a.studentId === currentUser.id);
-      let historyHtml = '<div style="max-height: 400px; overflow-y: auto;">';
-      if (studentAttendance.length === 0) {
-        historyHtml += '<div style="padding: 20px; text-align: center; color: #64748b;">No attendance records yet</div>';
-      } else {
-        studentAttendance.sort((a,b) => new Date(b.date) - new Date(a.date)).forEach(a => {
-          historyHtml += `<div style="padding: 10px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between;"><span>${a.date}</span><span style="color: ${a.status === 'present' ? '#10b981' : '#ef4444'}">${a.status.toUpperCase()}</span><span>${a.time || '-'}</span></div>`;
-        });
-      }
-      historyHtml += '</div>';
-      
-      const modal = document.createElement('div');
-      modal.className = 'modal';
-      modal.style.display = 'flex';
-      modal.innerHTML = `<div class="modal-content"><h3>Attendance History</h3>${historyHtml}<button class="btn-secondary" onclick="this.closest('.modal').remove()">Close</button></div>`;
-      document.body.appendChild(modal);
-    }
-    
-    function showLeaveModal() { document.getElementById('leaveModal').style.display = 'flex'; }
-    function closeLeaveModal() { document.getElementById('leaveModal').style.display = 'none'; document.getElementById('leaveApplicationForm').reset(); }
-    
-    document.getElementById('leaveApplicationForm')?.addEventListener('submit', (e) => {
-      e.preventDefault();
-      const fromDate = document.getElementById('leaveFromDate').value;
-      const toDate = document.getElementById('leaveToDate').value;
-      const reason = document.getElementById('leaveReason').value;
-      
-      db.leaves.push({
-        id: Date.now(),
-        studentId: currentUser.id,
-        studentName: currentUser.name,
-        rollNo: currentUser.rollNo,
-        fromDate: fromDate,
-        toDate: toDate,
-        reason: reason,
-        status: 'pending',
-        appliedAt: new Date().toISOString()
-      });
-      saveToLocalStorage();
-      alert('Leave application submitted successfully!');
-      closeLeaveModal();
-      loadStudentDashboard();
     });
-    
-    function viewAllLeaveApplications() {
-      const leaves = db.leaves;
-      let html = '<div style="max-height: 400px; overflow-y: auto;">';
-      if (leaves.length === 0) {
-        html += '<div style="padding: 20px; text-align: center; color: #64748b;">No leave applications yet</div>';
-      } else {
-        leaves.forEach(l => {
-          html += `<div style="padding: 12px; border-bottom: 1px solid #e2e8f0;"><strong>${l.studentName}</strong> (${l.rollNo})<br>📅 ${l.fromDate} to ${l.toDate}<br>📝 ${l.reason}<br><span class="status-badge status-${l.status}">${l.status.toUpperCase()}</span></div>`;
-        });
-      }
-      html += '</div>';
-      
-      const modal = document.createElement('div');
-      modal.className = 'modal';
-      modal.style.display = 'flex';
-      modal.innerHTML = `<div class="modal-content"><h3>Leave Applications</h3>${html}<button class="btn-secondary" onclick="this.closest('.modal').remove()">Close</button></div>`;
-      document.body.appendChild(modal);
-    }
-    
-    function viewAttendanceReport() {
-      const students = db.users.filter(u => u.role === 'student');
-      let html = '<div style="max-height: 400px; overflow-y: auto;"><table style="width:100%"> <thead><tr><th>Student</th><th>Present</th><th>Total</th><th>%</th></tr></thead><tbody>';
-      if (students.length === 0) {
-        html += '<tr><td colspan="4" style="text-align:center; padding:20px;">No students registered yet</td></tr>';
-      } else {
-        students.forEach(s => {
-          const studentAtt = db.attendance.filter(a => a.studentId === s.id);
-          const present = studentAtt.filter(a => a.status === 'present').length;
-          const total = studentAtt.length;
-          const percent = total ? ((present/total)*100).toFixed(1) : 0;
-          html += `<tr><td>${s.name}</td><td>${present}</td><td>${total}</td><td>${percent}%</td></tr>`;
-        });
-      }
-      html += '</tbody></table></div>';
-      
-      const modal = document.createElement('div');
-      modal.className = 'modal';
-      modal.style.display = 'flex';
-      modal.innerHTML = `<div class="modal-content"><h3>Attendance Report</h3>${html}<button class="btn-secondary" onclick="this.closest('.modal').remove()">Close</button></div>`;
-      document.body.appendChild(modal);
-    }
-    
-    function showHelpSupport() { document.getElementById('helpModal').style.display = 'flex'; }
-    function closeHelpModal() { document.getElementById('helpModal').style.display = 'none'; }
-    function showNotifications() { 
-      const count = db.notifications.filter(n => n.userId === currentUser.id && !n.read).length;
-      if (count === 0) {
-        alert('🔔 No new notifications');
-      } else {
-        alert(`🔔 You have ${count} new notification(s)`);
-      }
-    }
-    
-    // Load data and check for existing session
-    loadFromLocalStorage();
-    
-    const savedUser = localStorage.getItem('attendify_current_user');
-    if (savedUser) {
-      currentUser = JSON.parse(savedUser);
-      setTimeout(() => {
-        document.getElementById('splashScreen').style.display = 'none';
-        showApp();
-      }, 1000);
-    }
-    
-    // Make functions global
-    window.selectSignupRole = selectSignupRole;
-    window.showSignupModal = showSignupModal;
-    window.closeSignupModal = closeSignupModal;
-    window.showLoginScreen = showLoginScreen;
-    window.showWelcomeScreen = showWelcomeScreen;
-    window.logout = logout;
-    window.showQRCode = showQRCode;
-    window.closeQRModal = closeQRModal;
-    window.openQRScanner = openQRScanner;
-    window.stopScannerAndClose = stopScannerAndClose;
-    window.switchCamera = switchCamera;
-    window.markManualAttendance = markManualAttendance;
-    window.viewAnnouncements = viewAnnouncements;
-    window.closeAnnouncementModal = closeAnnouncementModal;
-    window.viewAttendanceHistory = viewAttendanceHistory;
-    window.showLeaveModal = showLeaveModal;
-    window.closeLeaveModal = closeLeaveModal;
-    window.viewAllLeaveApplications = viewAllLeaveApplications;
-    window.viewAttendanceReport = viewAttendanceReport;
-    window.showHelpSupport = showHelpSupport;
-    window.closeHelpModal = closeHelpModal;
-    window.showNotifications = showNotifications;
-    window.showLinkChildModal = showLinkChildModal;
-    window.closeLinkChildModal = closeLinkChildModal;
-    window.linkChild = linkChild;
-    window.viewChildDetails = viewChildDetails;
   </script>
 </body>
 </html>
