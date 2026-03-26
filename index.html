@@ -8,11 +8,11 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
   <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
   
-  <!-- Firebase SDKs - Loads in background, doesn't block UI -->
+  <!-- Firebase SDKs -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js";
     import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js";
-    import { getFirestore, collection, doc, setDoc, getDoc, getDocs, query, where, orderBy, addDoc, Timestamp, onSnapshot } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js";
+    import { getFirestore, collection, doc, setDoc, getDoc, getDocs, query, where, orderBy, addDoc, Timestamp, onSnapshot, deleteDoc, writeBatch } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js";
     
     const firebaseConfig = {
   apiKey: "AIzaSyDUYIdvOOKSR9cXdOa2J3NqDJAkRzOgpMU",
@@ -23,7 +23,7 @@
   appId: "1:617346905836:web:518c474261740f21d717c9"
 };
     
-    // Initialize Firebase (loads instantly)
+    // Initialize Firebase
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
     const db = getFirestore(app);
@@ -32,7 +32,87 @@
     window.db = db;
     window.Timestamp = Timestamp;
     
-    // Mark Firebase as ready
+    // Function to create demo data for new teachers
+    window.createDemoData = async function(teacherId, teacherName) {
+      try {
+        // Check if demo data already exists
+        const studentsQuery = query(collection(db, "users"), where("role", "==", "student"));
+        const studentsSnapshot = await getDocs(studentsQuery);
+        
+        if (studentsSnapshot.size > 0) {
+          console.log("Demo data already exists");
+          return;
+        }
+        
+        // Create demo students
+        const demoStudents = [
+          { name: "Alex Thompson", rollNo: "STU001", class: "10th Grade", email: "alex@demo.com", password: "demo123" },
+          { name: "Emma Wilson", rollNo: "STU002", class: "10th Grade", email: "emma@demo.com", password: "demo123" },
+          { name: "James Chen", rollNo: "STU003", class: "10th Grade", email: "james@demo.com", password: "demo123" },
+          { name: "Sophia Rodriguez", rollNo: "STU004", class: "10th Grade", email: "sophia@demo.com", password: "demo123" },
+          { name: "William Taylor", rollNo: "STU005", class: "10th Grade", email: "william@demo.com", password: "demo123" }
+        ];
+        
+        // Create student accounts
+        for (const student of demoStudents) {
+          try {
+            // Create auth user
+            const userCredential = await createUserWithEmailAndPassword(auth, student.email, student.password);
+            const userId = userCredential.user.uid;
+            
+            // Save user data
+            await setDoc(doc(db, "users", userId), {
+              uid: userId,
+              name: student.name,
+              email: student.email,
+              role: "student",
+              rollNo: student.rollNo,
+              class: student.class,
+              createdAt: Timestamp.now()
+            });
+            
+            console.log(`Created student: ${student.name}`);
+          } catch (error) {
+            // User might already exist
+            console.log(`Student ${student.name} may already exist:`, error.message);
+          }
+        }
+        
+        // Create demo parent
+        try {
+          const parentCredential = await createUserWithEmailAndPassword(auth, "parent@attendify.com", "parent123");
+          await setDoc(doc(db, "users", parentCredential.user.uid), {
+            uid: parentCredential.user.uid,
+            name: "Michael Brown",
+            email: "parent@attendify.com",
+            role: "parent",
+            createdAt: Timestamp.now()
+          });
+        } catch (error) {}
+        
+        // Create demo announcements
+        const announcements = [
+          { title: "📢 Welcome to Attendify!", content: "This is a demo announcement. Teachers can create announcements here.", postedBy: teacherName },
+          { title: "📚 Parent-Teacher Meeting", content: "Parent-Teacher meeting scheduled for March 30th at 10:00 AM in the main auditorium.", postedBy: teacherName },
+          { title: "🏆 Sports Day Announcement", content: "Annual Sports Day will be held on April 15th. All students are encouraged to participate.", postedBy: teacherName }
+        ];
+        
+        for (const announcement of announcements) {
+          await addDoc(collection(db, "announcements"), {
+            title: announcement.title,
+            content: announcement.content,
+            postedBy: announcement.postedBy,
+            postedById: teacherId,
+            createdAt: Timestamp.now()
+          });
+        }
+        
+        console.log("Demo data created successfully!");
+      } catch (error) {
+        console.error("Error creating demo data:", error);
+      }
+    };
+    
     window.firebaseReady = true;
   </script>
   
@@ -546,10 +626,8 @@
         <p>Already have an account? <a onclick="showLoginScreen()">Login here</a></p>
       </div>
       <div class="demo-note">
-        <strong>Demo Accounts:</strong><br>
-        Teacher: teacher@attendify.com / teacher123<br>
-        Student: student@attendify.com / student123<br>
-        Parent: parent@attendify.com / parent123
+        <strong>🔥 Quick Demo:</strong> Create a Teacher account first, then create Student accounts from the signup page.<br>
+        <strong>Demo Students:</strong> Use roll numbers STU001, STU002, etc.
       </div>
     </div>
   </div>
@@ -718,9 +796,8 @@
 
   <script type="module">
     import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js";
-    import { getFirestore, collection, doc, setDoc, getDoc, getDocs, query, where, orderBy, addDoc, Timestamp, onSnapshot, deleteDoc } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js";
+    import { getFirestore, collection, doc, setDoc, getDoc, getDocs, query, where, orderBy, addDoc, Timestamp, onSnapshot } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js";
     
-    // References to Firebase (initialized in the module above)
     const auth = window.auth;
     const db = window.db;
     
@@ -730,13 +807,11 @@
     let currentCameraId = null;
     let announcementsUnsubscribe = null;
     
-    // Wait for Firebase to be ready, then proceed
     setTimeout(() => {
       document.getElementById('splashScreen').style.display = 'none';
       document.getElementById('welcomeContainer').style.display = 'flex';
     }, 1000);
     
-    // Role selection for signup
     window.selectSignupRole = function(role) {
       selectedRole = role;
       document.querySelectorAll('.role-option').forEach(opt => opt.classList.remove('selected'));
@@ -749,8 +824,6 @@
       if (role === 'student') {
         rollNoField.style.display = 'block';
         classField.style.display = 'block';
-        document.getElementById('signupRollNo').required = true;
-        document.getElementById('signupClass').required = true;
       } else {
         rollNoField.style.display = 'none';
         classField.style.display = 'none';
@@ -782,7 +855,7 @@
       const className = document.getElementById('signupClass').value;
       
       if (!role) {
-        alert('Please select a role (Student or Teacher)');
+        alert('Please select a role');
         return;
       }
       
@@ -810,7 +883,12 @@
         
         await setDoc(doc(db, "users", userId), userData);
         
-        alert(`Account created successfully as ${role.toUpperCase()}! Please login.`);
+        // If this is the first teacher, create demo data
+        if (role === 'teacher') {
+          await window.createDemoData(userId, name);
+        }
+        
+        alert(`Account created successfully! Please login.`);
         closeSignupModal();
         showLoginScreen();
       } catch (error) {
@@ -834,9 +912,9 @@
       const password = document.getElementById('loginPassword').value;
       
       try {
-        const userCredential = await signInWithEmailAndPassword(auth, email, password);
+        await signInWithEmailAndPassword(auth, email, password);
       } catch (error) {
-        alert('Login failed: ' + error.message + '\n\nUse demo accounts: teacher@attendify.com / teacher123');
+        alert('Login failed: ' + error.message);
       }
     });
     
@@ -850,7 +928,6 @@
       badge.innerText = `Role: ${currentUser.role.toUpperCase()}`;
       badge.className = `badge badge-${currentUser.role}`;
       
-      // Setup real-time announcements listener
       setupAnnouncementsListener();
       
       if (currentUser.role === 'student') {
@@ -863,9 +940,7 @@
     }
     
     function setupAnnouncementsListener() {
-      if (announcementsUnsubscribe) {
-        announcementsUnsubscribe();
-      }
+      if (announcementsUnsubscribe) announcementsUnsubscribe();
       
       const q = query(collection(db, "announcements"), orderBy("createdAt", "desc"));
       announcementsUnsubscribe = onSnapshot(q, (snapshot) => {
@@ -874,24 +949,17 @@
           window.liveAnnouncements.push({ id: doc.id, ...doc.data() });
         });
         
-        // Refresh dashboard if currently on student or parent view
         if (currentUser && document.getElementById('appContainer').style.display === 'block') {
-          if (currentUser.role === 'student') {
-            loadStudentDashboard();
-          } else if (currentUser.role === 'parent') {
-            loadParentDashboard();
-          } else if (currentUser.role === 'teacher') {
-            loadTeacherDashboard();
-          }
+          if (currentUser.role === 'student') loadStudentDashboard();
+          else if (currentUser.role === 'parent') loadParentDashboard();
+          else if (currentUser.role === 'teacher') loadTeacherDashboard();
         }
       });
     }
     
     window.logout = async function() {
       await signOut(auth);
-      if (announcementsUnsubscribe) {
-        announcementsUnsubscribe();
-      }
+      if (announcementsUnsubscribe) announcementsUnsubscribe();
       currentUser = null;
       document.getElementById('appContainer').style.display = 'none';
       document.getElementById('welcomeContainer').style.display = 'flex';
@@ -979,7 +1047,7 @@
       const presentToday = attendanceSnapshot.size;
       const attendancePercent = students.length ? ((presentToday / students.length) * 100).toFixed(1) : 0;
       
-      const recentAttendanceQuery = query(collection(db, "attendance"), orderBy("timestamp", "desc"), orderBy("date", "desc"));
+      const recentAttendanceQuery = query(collection(db, "attendance"), orderBy("timestamp", "desc"));
       const recentAttendanceSnapshot = await getDocs(recentAttendanceQuery);
       const recentAttendance = recentAttendanceSnapshot.docs.slice(0, 5).map(doc => doc.data());
       
@@ -1075,27 +1143,13 @@
           totalPresent += present;
           totalDays += total;
           
-          const recentAttendance = [...attendanceRecords].sort((a,b) => new Date(b.date) - new Date(a.date)).slice(0, 3);
-          
           childrenHtml += `
             <div class="child-card">
               <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                <div>
-                  <strong style="font-size: 1.1rem;">${link.childName}</strong>
-                  <br>
-                  <small style="color: #64748b;">Roll No: ${link.childRollNo} | Class: ${childData?.class || 'N/A'}</small>
-                </div>
-                <span class="status-badge" style="background: ${percent >= 75 ? '#dcfce7' : '#fed7aa'}; color: ${percent >= 75 ? '#166534' : '#9a3412'}">
-                  ${percent}% Attendance
-                </span>
+                <div><strong>${link.childName}</strong><br><small>Roll No: ${link.childRollNo}</small></div>
+                <span class="status-badge" style="background: ${percent >= 75 ? '#dcfce7' : '#fed7aa'}">${percent}%</span>
               </div>
-              <div style="margin-top: 8px;">
-                ${recentAttendance.map(a => `
-                  <span style="display: inline-block; padding: 2px 8px; margin: 2px; border-radius: 12px; font-size: 0.7rem; background: ${a.status === 'present' ? '#dcfce7' : '#fee2e2'}; color: ${a.status === 'present' ? '#166534' : '#991b1b'}">
-                    ${a.date.split('-').slice(1).join('/')}: ${a.status}
-                  </span>
-                `).join('') || '<small>No records yet</small>'}
-              </div>
+              <div>📊 Present: ${present}/${total}</div>
             </div>
           `;
         }
@@ -1104,9 +1158,9 @@
         
         childrenHtml = `
           <div class="stats-grid" style="margin-bottom: 1.5rem;">
-            <div class="stat-card"><h3><i class="fas fa-child"></i> My Children</h3><div class="stat-number">${links.length}</div></div>
-            <div class="stat-card"><h3><i class="fas fa-check-circle"></i> Overall Present</h3><div class="stat-number">${totalPresent}/${totalDays}</div></div>
-            <div class="stat-card"><h3><i class="fas fa-chart-line"></i> Overall Rate</h3><div class="stat-number">${overallPercent}%</div></div>
+            <div class="stat-card"><h3>My Children</h3><div class="stat-number">${links.length}</div></div>
+            <div class="stat-card"><h3>Overall Present</h3><div class="stat-number">${totalPresent}/${totalDays}</div></div>
+            <div class="stat-card"><h3>Overall Rate</h3><div class="stat-number">${overallPercent}%</div></div>
           </div>
           ${childrenHtml}
         `;
@@ -1141,8 +1195,8 @@
           <h3><i class="fas fa-megaphone"></i> Latest Announcements</h3>
           <ul class="announcement-list">
             ${announcements.slice(0, 5).map(a => `
-              <li><i class="fas fa-bullhorn" style="color:#2563eb;"></i><div><strong>${a.title}</strong><br><small>${a.content}</small><br><small style="color:#64748b;">📅 ${a.createdAt?.toDate ? new Date(a.createdAt.toDate()).toLocaleDateString() : 'Recent'}</small></div></li>
-            `).join('') || '<li style="color:#64748b;">No announcements yet</li>'}
+              <li><i class="fas fa-bullhorn" style="color:#2563eb;"></i><div><strong>${a.title}</strong><br><small>${a.content}</small></div></li>
+            `).join('') || '<li>No announcements yet</li>'}
           </ul>
         </div>
       `;
@@ -1155,55 +1209,36 @@
       document.getElementById('manualStudentId').value = '';
       
       try {
-        if (html5QrCode) {
-          await html5QrCode.stop();
-        }
-        
+        if (html5QrCode) await html5QrCode.stop();
         html5QrCode = new Html5Qrcode("qr-reader");
         const cameras = await Html5Qrcode.getCameras();
-        
         if (cameras && cameras.length) {
           currentCameraId = cameras[0].id;
           await startScanner(currentCameraId);
-        } else {
-          document.getElementById('scannerStatus').innerHTML = '<div class="scanner-status error">No cameras found. Please use manual entry.</div>';
         }
       } catch (err) {
-        document.getElementById('scannerStatus').innerHTML = '<div class="scanner-status error">Camera access denied. Please use manual entry.</div>';
+        document.getElementById('scannerStatus').innerHTML = '<div class="scanner-status error">Camera access denied</div>';
       }
     };
     
     async function startScanner(cameraId) {
       if (!html5QrCode) return;
-      
-      await html5QrCode.start(
-        cameraId,
-        { fps: 10, qrbox: { width: 250, height: 250 } },
-        async (decodedText) => {
-          await processScannedQR(decodedText);
-        },
-        (errorMessage) => {}
-      );
+      await html5QrCode.start(cameraId, { fps: 10, qrbox: { width: 250, height: 250 } }, async (decodedText) => {
+        await processScannedQR(decodedText);
+      }, () => {});
     }
     
     async function processScannedQR(scannedData) {
-      if (html5QrCode) {
-        await html5QrCode.stop();
-      }
-      
+      if (html5QrCode) await html5QrCode.stop();
       const studentsQuery = query(collection(db, "users"), where("role", "==", "student"));
       const studentsSnapshot = await getDocs(studentsQuery);
-      const student = studentsSnapshot.docs.find(doc => 
-        doc.data().rollNo === scannedData || doc.id === scannedData
-      );
+      const student = studentsSnapshot.docs.find(doc => doc.data().rollNo === scannedData);
       
       if (student) {
         await markAttendance(student.id, student.data().name);
       } else {
         document.getElementById('scannerStatus').innerHTML = `<div class="scanner-status error">Student not found: ${scannedData}</div>`;
-        setTimeout(() => {
-          if (currentCameraId) startScanner(currentCameraId);
-        }, 2000);
+        setTimeout(() => { if (currentCameraId) startScanner(currentCameraId); }, 2000);
       }
     }
     
@@ -1213,46 +1248,26 @@
       const existingSnapshot = await getDocs(existingQuery);
       
       if (!existingSnapshot.empty) {
-        document.getElementById('scannerStatus').innerHTML = `<div class="scanner-status error">${studentName} already marked present today!</div>`;
+        document.getElementById('scannerStatus').innerHTML = `<div class="scanner-status error">${studentName} already marked present!</div>`;
       } else {
         await addDoc(collection(db, "attendance"), {
-          studentId: studentId,
-          studentName: studentName,
-          date: today,
-          status: 'present',
-          time: new Date().toLocaleTimeString(),
-          markedBy: currentUser.name,
-          timestamp: Timestamp.now()
+          studentId, studentName, date: today, status: 'present',
+          time: new Date().toLocaleTimeString(), markedBy: currentUser.name, timestamp: Timestamp.now()
         });
-        
-        document.getElementById('scannerStatus').innerHTML = `<div class="scanner-status success">✅ Attendance marked for ${studentName}</div>`;
+        document.getElementById('scannerStatus').innerHTML = `<div class="scanner-status success">✅ Marked ${studentName} present</div>`;
         loadTeacherDashboard();
-        
-        setTimeout(() => {
-          stopScannerAndClose();
-        }, 2000);
+        setTimeout(() => stopScannerAndClose(), 2000);
       }
     }
     
     window.markManualAttendance = async function() {
       const studentId = document.getElementById('manualStudentId').value.trim();
-      if (!studentId) {
-        alert('Please enter Student ID or Roll Number');
-        return;
-      }
-      
+      if (!studentId) { alert('Enter Student ID'); return; }
       const studentsQuery = query(collection(db, "users"), where("role", "==", "student"));
       const studentsSnapshot = await getDocs(studentsQuery);
-      const student = studentsSnapshot.docs.find(doc => 
-        doc.data().rollNo === studentId || doc.id === studentId
-      );
-      
-      if (student) {
-        await markAttendance(student.id, student.data().name);
-        document.getElementById('manualStudentId').value = '';
-      } else {
-        alert('Student not found! Please check the ID/Roll Number.');
-      }
+      const student = studentsSnapshot.docs.find(doc => doc.data().rollNo === studentId);
+      if (student) await markAttendance(student.id, student.data().name);
+      else alert('Student not found!');
     };
     
     window.switchCamera = async function() {
@@ -1260,39 +1275,21 @@
         const cameras = await Html5Qrcode.getCameras();
         if (cameras && cameras.length > 1) {
           const currentIndex = cameras.findIndex(c => c.id === currentCameraId);
-          const nextIndex = (currentIndex + 1) % cameras.length;
-          currentCameraId = cameras[nextIndex].id;
-          
-          if (html5QrCode) {
-            await html5QrCode.stop();
-            await startScanner(currentCameraId);
-          }
-        } else {
-          alert('Only one camera available');
+          currentCameraId = cameras[(currentIndex + 1) % cameras.length].id;
+          if (html5QrCode) { await html5QrCode.stop(); await startScanner(currentCameraId); }
         }
-      } catch (err) {
-        console.error("Error switching camera:", err);
-      }
+      } catch (err) {}
     };
     
     window.stopScannerAndClose = async function() {
-      if (html5QrCode) {
-        try {
-          await html5QrCode.stop();
-        } catch (e) {}
-      }
+      if (html5QrCode) await html5QrCode.stop();
       document.getElementById('qrScannerModal').style.display = 'none';
-      document.getElementById('scannerStatus').innerHTML = '';
     };
     
     // Announcement Functions
     window.showCreateAnnouncementModal = function() {
-      if (currentUser.role !== 'teacher') {
-        alert('Only teachers can create announcements');
-        return;
-      }
+      if (currentUser.role !== 'teacher') { alert('Only teachers can create announcements'); return; }
       document.getElementById('createAnnouncementModal').style.display = 'flex';
-      document.getElementById('createAnnouncementForm').reset();
     };
     
     window.closeCreateAnnouncementModal = function() {
@@ -1303,229 +1300,90 @@
       e.preventDefault();
       const title = document.getElementById('announcementTitle').value;
       const content = document.getElementById('announcementContent').value;
-      
-      if (currentUser.role !== 'teacher') {
-        alert('Only teachers can post announcements');
-        return;
-      }
-      
       await addDoc(collection(db, "announcements"), {
-        title: title,
-        content: content,
-        postedBy: currentUser.name,
-        postedById: currentUser.uid,
-        createdAt: Timestamp.now()
+        title, content, postedBy: currentUser.name, postedById: currentUser.uid, createdAt: Timestamp.now()
       });
-      
-      alert('Announcement posted successfully!');
+      alert('Announcement posted!');
       closeCreateAnnouncementModal();
       loadTeacherDashboard();
     });
     
-    // View Functions
     window.viewAnnouncements = function() {
       const announcements = window.liveAnnouncements || [];
-      const announcementList = document.getElementById('announcementList');
-      
-      if (announcements.length === 0) {
-        announcementList.innerHTML = '<div style="padding: 12px; text-align: center; color: #64748b;">No announcements yet</div>';
-      } else {
-        announcementList.innerHTML = announcements.map(a => `
-          <div class="announcement-item">
-            <strong>${a.title}</strong><br>
-            <small>${a.content}</small><br>
-            <div class="announcement-date">Posted by ${a.postedBy || 'Teacher'} on ${a.createdAt?.toDate ? new Date(a.createdAt.toDate()).toLocaleString() : 'Recently'}</div>
-          </div>
-        `).join('');
-      }
+      const list = document.getElementById('announcementList');
+      list.innerHTML = announcements.map(a => `<div class="announcement-item"><strong>${a.title}</strong><br>${a.content}<div class="announcement-date">Posted by ${a.postedBy}</div></div>`).join('') || '<div>No announcements</div>';
       document.getElementById('announcementModal').style.display = 'flex';
     };
     
-    window.closeAnnouncementModal = function() {
-      document.getElementById('announcementModal').style.display = 'none';
-    };
-    
+    window.closeAnnouncementModal = () => document.getElementById('announcementModal').style.display = 'none';
     window.showQRCode = function() {
-      const qrData = currentUser.rollNo || currentUser.uid;
-      document.getElementById('qrStudentId').innerHTML = `${qrData}<br>${currentUser.name}<br>${currentUser.class || ''}`;
+      document.getElementById('qrStudentId').innerHTML = `${currentUser.rollNo}<br>${currentUser.name}<br>${currentUser.class || ''}`;
       document.getElementById('qrModal').style.display = 'flex';
     };
-    
-    window.closeQRModal = function() {
-      document.getElementById('qrModal').style.display = 'none';
-    };
-    
+    window.closeQRModal = () => document.getElementById('qrModal').style.display = 'none';
     window.viewAttendanceHistory = async function() {
       const attendanceQuery = query(collection(db, "attendance"), where("studentId", "==", currentUser.uid), orderBy("date", "desc"));
-      const attendanceSnapshot = await getDocs(attendanceQuery);
-      const records = attendanceSnapshot.docs.map(doc => doc.data());
-      
-      let html = '<div style="max-height: 400px; overflow-y: auto;">';
-      if (records.length === 0) {
-        html += '<div style="padding: 20px; text-align: center; color: #64748b;">No attendance records yet</div>';
-      } else {
-        records.forEach(a => {
-          html += `<div style="padding: 10px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between;">
-            <span>${a.date}</span>
-            <span style="color: ${a.status === 'present' ? '#10b981' : '#ef4444'}">${a.status.toUpperCase()}</span>
-            <span>${a.time || '-'}</span>
-          </div>`;
-        });
-      }
+      const snapshot = await getDocs(attendanceQuery);
+      let html = '<div><h4>Attendance History</h4>';
+      snapshot.docs.forEach(doc => {
+        const a = doc.data();
+        html += `<div>${a.date}: ${a.status.toUpperCase()} at ${a.time}</div>`;
+      });
       html += '</div>';
-      
-      const modal = document.createElement('div');
-      modal.className = 'modal';
-      modal.style.display = 'flex';
-      modal.innerHTML = `<div class="modal-content"><h3>Attendance History</h3>${html}<button class="btn-secondary" onclick="this.closest('.modal').remove()">Close</button></div>`;
-      document.body.appendChild(modal);
+      alert(html);
     };
-    
-    window.showLeaveModal = function() {
-      document.getElementById('leaveModal').style.display = 'flex';
-      document.getElementById('leaveApplicationForm').reset();
-    };
-    
-    window.closeLeaveModal = function() {
-      document.getElementById('leaveModal').style.display = 'none';
-    };
-    
+    window.showLeaveModal = () => document.getElementById('leaveModal').style.display = 'flex';
+    window.closeLeaveModal = () => document.getElementById('leaveModal').style.display = 'none';
     document.getElementById('leaveApplicationForm')?.addEventListener('submit', async (e) => {
       e.preventDefault();
-      const fromDate = document.getElementById('leaveFromDate').value;
-      const toDate = document.getElementById('leaveToDate').value;
-      const reason = document.getElementById('leaveReason').value;
-      
       await addDoc(collection(db, "leaves"), {
-        studentId: currentUser.uid,
-        studentName: currentUser.name,
-        rollNo: currentUser.rollNo || '',
-        fromDate: fromDate,
-        toDate: toDate,
-        reason: reason,
-        status: 'pending',
-        appliedAt: Timestamp.now()
+        studentId: currentUser.uid, studentName: currentUser.name, rollNo: currentUser.rollNo || '',
+        fromDate: document.getElementById('leaveFromDate').value, toDate: document.getElementById('leaveToDate').value,
+        reason: document.getElementById('leaveReason').value, status: 'pending', appliedAt: Timestamp.now()
       });
-      
-      alert('Leave application submitted successfully!');
+      alert('Leave submitted!');
       closeLeaveModal();
       loadStudentDashboard();
     });
-    
     window.viewAllLeaveApplications = async function() {
-      const leavesQuery = query(collection(db, "leaves"), orderBy("appliedAt", "desc"));
-      const leavesSnapshot = await getDocs(leavesQuery);
-      const leaves = leavesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      
-      let html = '<div style="max-height: 400px; overflow-y: auto;">';
-      if (leaves.length === 0) {
-        html += '<div style="padding: 20px; text-align: center; color: #64748b;">No leave applications yet</div>';
-      } else {
-        leaves.forEach(l => {
-          html += `<div style="padding: 12px; border-bottom: 1px solid #e2e8f0;">
-            <strong>${l.studentName}</strong> (${l.rollNo || 'N/A'})<br>
-            📅 ${l.fromDate} to ${l.toDate}<br>
-            📝 ${l.reason}<br>
-            <span class="status-badge status-${l.status}">${l.status.toUpperCase()}</span>
-          </div>`;
-        });
-      }
-      html += '</div>';
-      
-      const modal = document.createElement('div');
-      modal.className = 'modal';
-      modal.style.display = 'flex';
-      modal.innerHTML = `<div class="modal-content"><h3>Leave Applications</h3>${html}<button class="btn-secondary" onclick="this.closest('.modal').remove()">Close</button></div>`;
-      document.body.appendChild(modal);
+      const snapshot = await getDocs(query(collection(db, "leaves"), orderBy("appliedAt", "desc")));
+      let msg = 'Leave Applications:\n';
+      snapshot.docs.forEach(doc => {
+        const l = doc.data();
+        msg += `${l.studentName}: ${l.fromDate} to ${l.toDate} - ${l.status}\n`;
+      });
+      alert(msg);
     };
-    
     window.viewAttendanceReport = async function() {
-      const studentsQuery = query(collection(db, "users"), where("role", "==", "student"));
-      const studentsSnapshot = await getDocs(studentsQuery);
-      
-      let html = '<div style="max-height: 400px; overflow-y: auto;"><table style="width:100%"><thead><tr><th>Student</th><th>Present</th><th>Total</th><th>%</th> </thead><tbody>';
-      
-      for (const studentDoc of studentsSnapshot.docs) {
+      const students = await getDocs(query(collection(db, "users"), where("role", "==", "student")));
+      let msg = 'Attendance Report:\n';
+      for (const studentDoc of students.docs) {
         const student = studentDoc.data();
-        const attendanceQuery = query(collection(db, "attendance"), where("studentId", "==", studentDoc.id));
-        const attendanceSnapshot = await getDocs(attendanceQuery);
-        const present = attendanceSnapshot.docs.filter(d => d.data().status === 'present').length;
-        const total = attendanceSnapshot.size;
-        const percent = total ? ((present/total)*100).toFixed(1) : 0;
-        html += `<tr><td>${student.name}</td><td>${present}</td><td>${total}</td><td>${percent}%</td></tr>`;
+        const attendance = await getDocs(query(collection(db, "attendance"), where("studentId", "==", studentDoc.id)));
+        const present = attendance.docs.filter(d => d.data().status === 'present').length;
+        msg += `${student.name}: ${present}/${attendance.size} (${present/attendance.size*100 || 0}%)\n`;
       }
-      
-      html += '</tbody></table></div>';
-      
-      const modal = document.createElement('div');
-      modal.className = 'modal';
-      modal.style.display = 'flex';
-      modal.innerHTML = `<div class="modal-content"><h3>Attendance Report</h3>${html}<button class="btn-secondary" onclick="this.closest('.modal').remove()">Close</button></div>`;
-      document.body.appendChild(modal);
+      alert(msg);
     };
-    
-    window.showHelpSupport = function() {
-      document.getElementById('helpModal').style.display = 'flex';
-    };
-    
-    window.closeHelpModal = function() {
-      document.getElementById('helpModal').style.display = 'none';
-    };
-    
-    window.showNotifications = function() {
-      alert('🔔 Notification Alerts\n\nYou will receive real-time notifications when your child\'s attendance is marked.');
-    };
-    
-    window.showLinkChildModal = function() {
-      document.getElementById('linkChildModal').style.display = 'flex';
-      document.getElementById('linkChildRollNo').value = '';
-    };
-    
-    window.closeLinkChildModal = function() {
-      document.getElementById('linkChildModal').style.display = 'none';
-    };
-    
+    window.showHelpSupport = () => document.getElementById('helpModal').style.display = 'flex';
+    window.closeHelpModal = () => document.getElementById('helpModal').style.display = 'none';
+    window.showNotifications = () => alert('🔔 No new notifications');
+    window.showLinkChildModal = () => document.getElementById('linkChildModal').style.display = 'flex';
+    window.closeLinkChildModal = () => document.getElementById('linkChildModal').style.display = 'none';
     window.linkChild = async function() {
       const rollNo = document.getElementById('linkChildRollNo').value.trim();
-      if (!rollNo) {
-        alert('Please enter your child\'s roll number');
-        return;
-      }
-      
-      const studentsQuery = query(collection(db, "users"), where("rollNo", "==", rollNo), where("role", "==", "student"));
-      const studentSnapshot = await getDocs(studentsQuery);
-      
-      if (studentSnapshot.empty) {
-        alert('No student found with this roll number. Please check and try again.');
-        return;
-      }
-      
-      const child = studentSnapshot.docs[0];
-      const childData = child.data();
-      
-      const existingQuery = query(collection(db, "parentChildLinks"), where("parentId", "==", currentUser.uid), where("childId", "==", child.id));
-      const existingSnapshot = await getDocs(existingQuery);
-      
-      if (!existingSnapshot.empty) {
-        alert(`${childData.name} is already linked to your account.`);
-        closeLinkChildModal();
-        return;
-      }
-      
+      if (!rollNo) { alert('Enter roll number'); return; }
+      const students = await getDocs(query(collection(db, "users"), where("rollNo", "==", rollNo), where("role", "==", "student")));
+      if (students.empty) { alert('Student not found'); return; }
+      const child = students.docs[0];
       await setDoc(doc(db, "parentChildLinks", `${currentUser.uid}_${child.id}`), {
-        parentId: currentUser.uid,
-        childId: child.id,
-        childName: childData.name,
-        childRollNo: rollNo,
-        linkedAt: Timestamp.now()
+        parentId: currentUser.uid, childId: child.id, childName: child.data().name, childRollNo: rollNo, linkedAt: Timestamp.now()
       });
-      
-      alert(`Successfully linked ${childData.name} (${rollNo}) to your account!`);
+      alert(`Linked ${child.data().name}`);
       closeLinkChildModal();
       loadParentDashboard();
     };
     
-    // Auth state listener - Loads in 1-2 seconds
     onAuthStateChanged(auth, async (user) => {
       if (user) {
         const userDoc = await getDoc(doc(db, "users", user.uid));
