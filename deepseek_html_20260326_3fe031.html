@@ -1,0 +1,1576 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+  <title>Attendify | Smart Attendance Management System</title>
+  <!-- Google Fonts & Font Awesome -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700;14..32,800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+  <!-- HTML5 QR Code Scanner Library -->
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: 'Inter', sans-serif;
+    }
+    
+    body {
+      background: linear-gradient(135deg, #1e3a8a, #3b82f6, #60a5fa);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+    
+    /* Welcome Splash Screen */
+    .splash-screen {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(135deg, #1e3a8a, #2563eb, #3b82f6);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 9999;
+      animation: fadeOut 0.5s ease-in-out 0.8s forwards;
+    }
+    
+    @keyframes fadeOut {
+      0% { opacity: 1; visibility: visible; }
+      100% { opacity: 0; visibility: hidden; }
+    }
+    
+    .splash-content {
+      text-align: center;
+      animation: bounceIn 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+    }
+    
+    @keyframes bounceIn {
+      0% { transform: scale(0.3); opacity: 0; }
+      50% { transform: scale(1.05); }
+      70% { transform: scale(0.95); }
+      100% { transform: scale(1); opacity: 1; }
+    }
+    
+    .splash-logo {
+      font-size: 5rem;
+      background: white;
+      width: 120px;
+      height: 120px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 1.5rem;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+      animation: pulse 0.8s ease-in-out;
+    }
+    
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.05); }
+    }
+    
+    .splash-logo i { font-size: 4rem; color: #2563eb; }
+    .splash-title { font-size: 3rem; font-weight: 800; color: white; margin-bottom: 0.5rem; text-shadow: 2px 2px 4px rgba(0,0,0,0.2); }
+    .splash-tagline { font-size: 1.1rem; color: rgba(255,255,255,0.95); font-weight: 500; }
+    
+    /* Welcome Container */
+    .welcome-container {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      padding: 2rem;
+      opacity: 0;
+      animation: fadeInUp 0.5s ease-out 1s forwards;
+    }
+    
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translateY(30px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    
+    .welcome-card {
+      background: white;
+      border-radius: 48px;
+      padding: 3rem 2rem;
+      max-width: 500px;
+      width: 100%;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+      text-align: center;
+    }
+    
+    .welcome-logo {
+      font-size: 3rem;
+      background: linear-gradient(135deg, #1e3a8a, #3b82f6);
+      width: 80px;
+      height: 80px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 1rem;
+    }
+    
+    .welcome-logo i { font-size: 2.5rem; color: white; }
+    .welcome-title { font-size: 2rem; font-weight: 700; color: #1e293b; margin-bottom: 0.5rem; }
+    .welcome-subtitle { color: #64748b; font-size: 0.95rem; }
+    
+    .create-account-btn {
+      background: linear-gradient(135deg, #3b82f6, #2563eb);
+      color: white;
+      border: none;
+      border-radius: 60px;
+      padding: 1rem 2rem;
+      font-size: 1.1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      width: 100%;
+      margin-bottom: 1rem;
+    }
+    
+    .create-account-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 25px -5px rgba(37, 99, 235, 0.4);
+    }
+    
+    .login-prompt {
+      margin-top: 1rem;
+      padding-top: 1.5rem;
+      border-top: 1px solid #e2e8f0;
+    }
+    
+    .login-prompt p { color: #64748b; font-size: 0.9rem; }
+    .login-prompt a { color: #2563eb; text-decoration: none; font-weight: 600; cursor: pointer; }
+    
+    /* Modal Styles */
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.5);
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+    }
+    
+    .modal-content {
+      background: white;
+      border-radius: 32px;
+      padding: 2rem;
+      width: 90%;
+      max-width: 500px;
+      max-height: 85vh;
+      overflow-y: auto;
+    }
+    
+    .modal-content h3 { color: #1e3a8a; margin-bottom: 1.5rem; text-align: center; }
+    
+    .input-group {
+      margin-bottom: 1rem;
+    }
+    
+    .input-group input,
+    .input-group select,
+    .input-group textarea {
+      width: 100%;
+      padding: 12px 16px;
+      border: 1px solid #cbd5e1;
+      border-radius: 40px;
+      outline: none;
+      font-size: 1rem;
+      transition: 0.2s;
+    }
+    
+    .input-group textarea {
+      border-radius: 20px;
+      resize: vertical;
+    }
+    
+    .input-group input:focus,
+    .input-group select:focus {
+      border-color: #3b82f6;
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    }
+    
+    .btn-primary {
+      background: #2563eb;
+      color: white;
+      border: none;
+      border-radius: 40px;
+      padding: 12px;
+      width: 100%;
+      font-weight: bold;
+      cursor: pointer;
+      transition: 0.2s;
+      font-size: 1rem;
+      margin-top: 0.5rem;
+    }
+    
+    .btn-primary:hover { background: #1d4ed8; transform: translateY(-1px); }
+    .btn-secondary {
+      background: #f1f5f9;
+      color: #334155;
+      border: 1px solid #cbd5e1;
+      border-radius: 40px;
+      padding: 10px 20px;
+      cursor: pointer;
+      margin-top: 10px;
+      width: 100%;
+    }
+    
+    .btn-danger {
+      background: #ef4444;
+      color: white;
+      border: none;
+      border-radius: 40px;
+      padding: 10px 20px;
+      cursor: pointer;
+    }
+    
+    /* QR Scanner Styles */
+    #qr-reader {
+      width: 100%;
+      margin: 1rem 0;
+      border-radius: 20px;
+      overflow: hidden;
+    }
+    
+    #qr-reader__scan_region {
+      background: #f1f5f9;
+      border-radius: 20px;
+      padding: 1rem;
+    }
+    
+    #qr-reader video {
+      width: 100%;
+      border-radius: 16px;
+    }
+    
+    .scanner-status {
+      text-align: center;
+      padding: 10px;
+      margin-top: 10px;
+      border-radius: 12px;
+      font-size: 0.9rem;
+    }
+    
+    .scanner-status.success {
+      background: #dcfce7;
+      color: #166534;
+    }
+    
+    .scanner-status.error {
+      background: #fee2e2;
+      color: #991b1b;
+    }
+    
+    .manual-input {
+      margin-top: 1rem;
+      padding-top: 1rem;
+      border-top: 1px solid #e2e8f0;
+    }
+    
+    /* Login Container */
+    .login-container {
+      display: none;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      padding: 2rem;
+      background: linear-gradient(135deg, #1e3a8a, #3b82f6);
+    }
+    
+    .login-card {
+      background: white;
+      border-radius: 48px;
+      padding: 3rem 2rem;
+      max-width: 500px;
+      width: 100%;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+      text-align: center;
+    }
+    
+    .back-link {
+      margin-top: 1.5rem;
+      text-align: center;
+    }
+    
+    .back-link a {
+      color: #2563eb;
+      text-decoration: none;
+      cursor: pointer;
+      font-size: 0.9rem;
+    }
+    
+    /* Main App Container */
+    .app-container { display: none; background: #f8fafc; min-height: 100vh; }
+    
+    .top-bar {
+      background: white;
+      padding: 1rem 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      border-bottom: 1px solid #e2e8f0;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    }
+    
+    .logo-area h1 { color: #1e3a8a; font-size: 1.5rem; }
+    .logo-area p { font-size: 0.75rem; color: #3b82f6; margin-top: 4px; }
+    
+    .user-info { display: flex; gap: 15px; align-items: center; flex-wrap: wrap; }
+    .badge { 
+      background: #e0f2fe; 
+      padding: 6px 12px; 
+      border-radius: 30px; 
+      font-size: 0.8rem; 
+      font-weight: 600;
+    }
+    .badge-student { background: #dbeafe; color: #1e40af; }
+    .badge-teacher { background: #dcfce7; color: #166534; }
+    .badge-parent { background: #fed7aa; color: #9a3412; }
+    
+    .icon-btn { 
+      background: none; 
+      border: none; 
+      font-size: 1.2rem; 
+      cursor: pointer; 
+      color: #2563eb; 
+      padding: 8px 12px;
+      border-radius: 40px;
+      transition: 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .icon-btn:hover { background: #eff6ff; }
+    
+    .dashboard { padding: 2rem; max-width: 1400px; margin: 0 auto; }
+    
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1.5rem;
+      margin-bottom: 2rem;
+    }
+    
+    .stat-card {
+      background: white;
+      border-radius: 24px;
+      padding: 1.5rem;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+      border-left: 5px solid #2563eb;
+    }
+    
+    .stat-card h3 { font-size: 0.85rem; color: #64748b; margin-bottom: 0.5rem; }
+    .stat-number { font-size: 2rem; font-weight: 800; color: #0f172a; }
+    
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 1.5rem;
+      margin-bottom: 2rem;
+    }
+    
+    .feature-card {
+      background: white;
+      border-radius: 24px;
+      padding: 1.5rem;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+      transition: all 0.3s ease;
+      cursor: pointer;
+    }
+    
+    .feature-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 12px 24px rgba(0, 0, 0, 0.1);
+    }
+    
+    .feature-icon {
+      width: 60px;
+      height: 60px;
+      background: linear-gradient(135deg, #3b82f6, #2563eb);
+      border-radius: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 1rem;
+    }
+    
+    .feature-icon i { font-size: 2rem; color: white; }
+    .feature-card h3 { font-size: 1.25rem; color: #1e293b; margin-bottom: 0.5rem; }
+    .feature-card p { color: #64748b; font-size: 0.9rem; line-height: 1.5; }
+    
+    .announcement-area, .children-list {
+      background: white;
+      border-radius: 24px;
+      padding: 1.5rem;
+      margin-bottom: 2rem;
+    }
+    
+    .announcement-list, .children-list-items {
+      list-style: none;
+      max-height: 300px;
+      overflow-y: auto;
+    }
+    
+    .announcement-list li, .children-list-items li {
+      padding: 0.75rem 0;
+      border-bottom: 1px solid #eef2ff;
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+    }
+    
+    .child-card {
+      background: #f8fafc;
+      border-radius: 16px;
+      padding: 1rem;
+      margin-bottom: 1rem;
+      border-left: 4px solid #2563eb;
+    }
+    
+    .status-badge {
+      padding: 2px 8px;
+      border-radius: 20px;
+      font-size: 0.7rem;
+      font-weight: 600;
+    }
+    
+    .status-pending { background: #fef3c7; color: #92400e; }
+    .status-approved { background: #dcfce7; color: #166534; }
+    .status-rejected { background: #fee2e2; color: #991b1b; }
+    
+    .notification-badge {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      background: #ef4444;
+      color: white;
+      border-radius: 50%;
+      width: 50px;
+      height: 50px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      z-index: 100;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    }
+    
+    @media (max-width: 640px) {
+      .top-bar { flex-direction: column; gap: 10px; text-align: center; }
+      .dashboard { padding: 1rem; }
+      .features-grid { grid-template-columns: 1fr; }
+      .splash-title { font-size: 2rem; }
+    }
+    
+    footer { text-align: center; padding: 1.5rem; color: #64748b; font-size: 0.8rem; border-top: 1px solid #e2e8f0; margin-top: 2rem; }
+    .loading { text-align: center; padding: 2rem; color: #64748b; }
+    .role-selector {
+      display: flex;
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+      justify-content: center;
+    }
+    .role-option {
+      flex: 1;
+      padding: 12px;
+      border: 2px solid #e2e8f0;
+      border-radius: 60px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .role-option.selected {
+      background: linear-gradient(135deg, #3b82f6, #2563eb);
+      border-color: #2563eb;
+      color: white;
+    }
+    .role-option i { margin-right: 8px; }
+    
+    /* Camera switch button */
+    .camera-switch {
+      background: #f1f5f9;
+      border: 1px solid #cbd5e1;
+      border-radius: 40px;
+      padding: 8px 16px;
+      margin: 10px 0;
+      cursor: pointer;
+      font-size: 0.85rem;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+  </style>
+</head>
+<body>
+  <!-- Splash Screen -->
+  <div class="splash-screen" id="splashScreen">
+    <div class="splash-content">
+      <div class="splash-logo"><i class="fas fa-qrcode"></i></div>
+      <h1 class="splash-title">Attendify</h1>
+      <p class="splash-tagline">Smart Attendance, Smarter Management</p>
+    </div>
+  </div>
+
+  <!-- Welcome Container -->
+  <div class="welcome-container" id="welcomeContainer" style="display: none;">
+    <div class="welcome-card">
+      <div class="welcome-logo"><i class="fas fa-check-circle"></i></div>
+      <h2 class="welcome-title">Welcome to Attendify</h2>
+      <p class="welcome-subtitle">Smart Attendance, Smarter Management</p>
+      <button class="create-account-btn" onclick="showSignupModal()">
+        <i class="fas fa-user-plus"></i> Create New Account
+      </button>
+      <div class="login-prompt">
+        <p>Already have an account? <a onclick="showLoginScreen()">Login here</a></p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Signup Modal with Role Selection -->
+  <div id="signupModal" class="modal">
+    <div class="modal-content">
+      <h3><i class="fas fa-user-plus"></i> Create Account</h3>
+      <div class="role-selector" id="signupRoleSelector">
+        <div class="role-option" data-role="student" onclick="selectSignupRole('student')">
+          <i class="fas fa-user-graduate"></i> Student
+        </div>
+        <div class="role-option" data-role="teacher" onclick="selectSignupRole('teacher')">
+          <i class="fas fa-chalkboard-user"></i> Teacher
+        </div>
+        <div class="role-option" data-role="parent" onclick="selectSignupRole('parent')">
+          <i class="fas fa-users"></i> Parent
+        </div>
+      </div>
+      <form id="signupForm">
+        <div class="input-group"><input type="text" id="signupName" placeholder="Full Name" required></div>
+        <div class="input-group"><input type="email" id="signupEmail" placeholder="Email Address" required></div>
+        <div class="input-group" id="rollNoField"><input type="text" id="signupRollNo" placeholder="Roll Number / Student ID"></div>
+        <div class="input-group" id="classField"><input type="text" id="signupClass" placeholder="Class / Grade"></div>
+        <div class="input-group" id="childLinkField" style="display:none;">
+          <input type="text" id="signupChildRollNo" placeholder="Your Child's Roll Number (Optional)">
+          <small style="color:#64748b; display:block; margin-top:5px;">Enter your child's roll number to link their account</small>
+        </div>
+        <div class="input-group"><input type="password" id="signupPassword" placeholder="Password" required></div>
+        <div class="input-group"><input type="password" id="signupConfirmPassword" placeholder="Confirm Password" required></div>
+        <input type="hidden" id="signupRole" value="">
+        <button type="submit" class="btn-primary">Create Account</button>
+        <button type="button" class="btn-secondary" onclick="closeSignupModal()">Cancel</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Link Child Modal for Parents -->
+  <div id="linkChildModal" class="modal">
+    <div class="modal-content">
+      <h3><i class="fas fa-child"></i> Link Your Child</h3>
+      <p style="margin-bottom: 1rem; color: #64748b;">Enter your child's roll number to view their attendance</p>
+      <div class="input-group"><input type="text" id="linkChildRollNo" placeholder="Child's Roll Number"></div>
+      <button class="btn-primary" onclick="linkChild()">Link Child</button>
+      <button class="btn-secondary" onclick="closeLinkChildModal()">Cancel</button>
+    </div>
+  </div>
+
+  <!-- Login Container -->
+  <div id="loginContainer" class="login-container">
+    <div class="login-card">
+      <div class="welcome-logo"><i class="fas fa-sign-in-alt"></i></div>
+      <h2 class="welcome-title">Login to Attendify</h2>
+      <form id="loginForm">
+        <div class="input-group"><input type="email" id="loginEmail" placeholder="Email Address" required></div>
+        <div class="input-group"><input type="password" id="loginPassword" placeholder="Password" required></div>
+        <button type="submit" class="btn-primary">Login</button>
+      </form>
+      <div class="back-link"><a onclick="showWelcomeScreen()">← Back to Create Account</a></div>
+    </div>
+  </div>
+
+  <!-- Main App Container -->
+  <div id="appContainer" class="app-container">
+    <div class="top-bar">
+      <div class="logo-area">
+        <h1>📘 Attendify</h1>
+        <p class="slogan">“Smart Attendance, Smarter Management”</p>
+      </div>
+      <div class="user-info">
+        <span class="badge" id="userRoleBadge"></span>
+        <span id="userNameDisplay" style="font-weight:500;"></span>
+        <button class="icon-btn" onclick="logout()">
+          <i class="fas fa-sign-out-alt"></i> Logout
+        </button>
+      </div>
+    </div>
+    
+    <div class="notification-badge" onclick="showNotifications()">
+      <i class="fas fa-bell"></i>
+      <span id="notificationCount" style="position: absolute; top: -5px; right: -5px; background: #ef4444; border-radius: 50%; width: 18px; height: 18px; font-size: 10px; display: flex; align-items: center; justify-content: center;">0</span>
+    </div>
+    
+    <div class="dashboard" id="dashboardContent">
+      <div class="loading">Loading dashboard...</div>
+    </div>
+    <footer>© Attendify — Smart Attendance Management System</footer>
+  </div>
+
+  <!-- QR Code Modal for Students -->
+  <div id="qrModal" class="modal">
+    <div class="modal-content">
+      <h3><i class="fas fa-qrcode"></i> My QR Code</h3>
+      <div id="qrCodeDisplay" style="text-align: center; padding: 2rem;">
+        <i class="fas fa-qrcode" style="font-size: 8rem; color: #2563eb;"></i>
+        <p style="margin-top: 1rem; font-weight: 600;" id="qrStudentId"></p>
+        <p style="font-size: 0.8rem; color: #64748b;">Show this to your teacher to mark attendance</p>
+      </div>
+      <button class="btn-secondary" onclick="closeQRModal()">Close</button>
+    </div>
+  </div>
+
+  <!-- QR Scanner Modal for Teachers -->
+  <div id="qrScannerModal" class="modal">
+    <div class="modal-content">
+      <h3><i class="fas fa-camera"></i> QR Code Scanner</h3>
+      <p style="margin-bottom: 1rem; color: #64748b;">Point camera at student's QR code</p>
+      <div id="qr-reader" style="width: 100%;"></div>
+      <div id="scannerStatus" class="scanner-status"></div>
+      <div class="manual-input">
+        <p style="text-align: center; margin-bottom: 0.5rem;">Or enter manually:</p>
+        <div class="input-group" style="display: flex; gap: 10px;">
+          <input type="text" id="manualStudentId" placeholder="Student ID / Roll Number" style="flex: 1;">
+          <button class="btn-primary" onclick="markManualAttendance()" style="width: auto; padding: 12px 20px; margin: 0;">Mark</button>
+        </div>
+      </div>
+      <button class="camera-switch" onclick="switchCamera()">
+        <i class="fas fa-sync-alt"></i> Switch Camera
+      </button>
+      <button class="btn-secondary" onclick="stopScannerAndClose()">Close Scanner</button>
+    </div>
+  </div>
+
+  <!-- Leave Application Modal -->
+  <div id="leaveModal" class="modal">
+    <div class="modal-content">
+      <h3><i class="fas fa-calendar-alt"></i> Apply for Leave</h3>
+      <form id="leaveApplicationForm">
+        <div class="input-group"><input type="date" id="leaveFromDate" required></div>
+        <div class="input-group"><input type="date" id="leaveToDate" required></div>
+        <div class="input-group"><textarea id="leaveReason" rows="3" placeholder="Reason for leave" required></textarea></div>
+        <button type="submit" class="btn-primary">Submit Application</button>
+        <button type="button" class="btn-secondary" onclick="closeLeaveModal()">Cancel</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Help Modal -->
+  <div id="helpModal" class="modal">
+    <div class="modal-content">
+      <h3><i class="fas fa-headset"></i> Help & Support</h3>
+      <p><strong>📧 Email:</strong> support@attendify.com</p>
+      <p><strong>📞 Phone:</strong> +1 (555) 123-4567</p>
+      <p><strong>💬 Live Chat:</strong> Available 9 AM - 6 PM</p>
+      <button class="btn-secondary" onclick="closeHelpModal()">Close</button>
+    </div>
+  </div>
+
+  <!-- Announcement Modal -->
+  <div id="announcementModal" class="modal">
+    <div class="modal-content">
+      <h3><i class="fas fa-bullhorn"></i> Announcements</h3>
+      <div id="announcementList"></div>
+      <button class="btn-secondary" onclick="closeAnnouncementModal()">Close</button>
+    </div>
+  </div>
+
+  <script>
+    // Database
+    let db = {
+      users: [],
+      attendance: [],
+      leaves: [],
+      parentChildLinks: [],
+      announcements: [],
+      notifications: []
+    };
+    
+    let currentUser = null;
+    let selectedRole = '';
+    let html5QrCode = null;
+    let currentCameraId = null;
+    
+    // Load data from localStorage
+    function loadFromLocalStorage() {
+      const savedUsers = localStorage.getItem('attendify_users');
+      const savedAttendance = localStorage.getItem('attendify_attendance');
+      const savedLeaves = localStorage.getItem('attendify_leaves');
+      const savedLinks = localStorage.getItem('attendify_parent_child_links');
+      const savedAnnouncements = localStorage.getItem('attendify_announcements');
+      
+      if (savedUsers) db.users = JSON.parse(savedUsers);
+      if (savedAttendance) db.attendance = JSON.parse(savedAttendance);
+      if (savedLeaves) db.leaves = JSON.parse(savedLeaves);
+      if (savedLinks) db.parentChildLinks = JSON.parse(savedLinks);
+      if (savedAnnouncements) db.announcements = JSON.parse(savedAnnouncements);
+    }
+    
+    function saveToLocalStorage() {
+      localStorage.setItem('attendify_users', JSON.stringify(db.users));
+      localStorage.setItem('attendify_attendance', JSON.stringify(db.attendance));
+      localStorage.setItem('attendify_leaves', JSON.stringify(db.leaves));
+      localStorage.setItem('attendify_parent_child_links', JSON.stringify(db.parentChildLinks));
+      localStorage.setItem('attendify_announcements', JSON.stringify(db.announcements));
+    }
+    
+    // Role selection for signup
+    function selectSignupRole(role) {
+      selectedRole = role;
+      document.querySelectorAll('.role-option').forEach(opt => opt.classList.remove('selected'));
+      document.querySelector(`.role-option[data-role="${role}"]`).classList.add('selected');
+      document.getElementById('signupRole').value = role;
+      
+      const rollNoField = document.getElementById('rollNoField');
+      const classField = document.getElementById('classField');
+      const childLinkField = document.getElementById('childLinkField');
+      
+      if (role === 'student') {
+        rollNoField.style.display = 'block';
+        classField.style.display = 'block';
+        childLinkField.style.display = 'none';
+        document.getElementById('signupRollNo').required = true;
+        document.getElementById('signupClass').required = true;
+      } else if (role === 'parent') {
+        rollNoField.style.display = 'none';
+        classField.style.display = 'none';
+        childLinkField.style.display = 'block';
+        document.getElementById('signupRollNo').required = false;
+        document.getElementById('signupClass').required = false;
+      } else {
+        rollNoField.style.display = 'none';
+        classField.style.display = 'none';
+        childLinkField.style.display = 'none';
+      }
+    }
+    
+    setTimeout(() => {
+      document.getElementById('splashScreen').style.display = 'none';
+      document.getElementById('welcomeContainer').style.display = 'flex';
+    }, 1000);
+    
+    function showSignupModal() {
+      selectedRole = '';
+      document.getElementById('signupRole').value = '';
+      document.querySelectorAll('.role-option').forEach(opt => opt.classList.remove('selected'));
+      document.getElementById('rollNoField').style.display = 'none';
+      document.getElementById('classField').style.display = 'none';
+      document.getElementById('childLinkField').style.display = 'none';
+      document.getElementById('signupForm').reset();
+      document.getElementById('signupModal').style.display = 'flex';
+    }
+    
+    function closeSignupModal() {
+      document.getElementById('signupModal').style.display = 'none';
+    }
+    
+    document.getElementById('signupForm')?.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const name = document.getElementById('signupName').value;
+      const email = document.getElementById('signupEmail').value;
+      const password = document.getElementById('signupPassword').value;
+      const confirmPassword = document.getElementById('signupConfirmPassword').value;
+      const role = document.getElementById('signupRole').value;
+      const rollNo = document.getElementById('signupRollNo').value;
+      const className = document.getElementById('signupClass').value;
+      const childRollNo = document.getElementById('signupChildRollNo').value;
+      
+      if (!role) {
+        alert('Please select a role (Student, Teacher, or Parent)');
+        return;
+      }
+      
+      if (password !== confirmPassword) {
+        alert('Passwords do not match!');
+        return;
+      }
+      
+      if (db.users.find(u => u.email === email)) {
+        alert('Email already registered! Please login.');
+        closeSignupModal();
+        showLoginScreen();
+        return;
+      }
+      
+      const newUser = {
+        id: Date.now(),
+        name: name,
+        email: email,
+        password: password,
+        role: role,
+        createdAt: new Date().toISOString()
+      };
+      
+      if (role === 'student') {
+        newUser.rollNo = rollNo;
+        newUser.class = className;
+      }
+      
+      db.users.push(newUser);
+      
+      if (role === 'parent' && childRollNo) {
+        const child = db.users.find(u => u.role === 'student' && u.rollNo === childRollNo);
+        if (child) {
+          db.parentChildLinks.push({
+            id: Date.now(),
+            parentId: newUser.id,
+            childId: child.id,
+            childName: child.name,
+            childRollNo: child.rollNo,
+            linkedAt: new Date().toISOString()
+          });
+          alert(`Child ${child.name} linked successfully!`);
+        } else {
+          alert('Child not found with that roll number. You can link your child later from the dashboard.');
+        }
+      }
+      
+      saveToLocalStorage();
+      alert(`Account created successfully as ${role.toUpperCase()}! Please login.`);
+      closeSignupModal();
+      showLoginScreen();
+    });
+    
+    function showLoginScreen() {
+      document.getElementById('welcomeContainer').style.display = 'none';
+      document.getElementById('loginContainer').style.display = 'flex';
+    }
+    
+    function showWelcomeScreen() {
+      document.getElementById('loginContainer').style.display = 'none';
+      document.getElementById('welcomeContainer').style.display = 'flex';
+    }
+    
+    document.getElementById('loginForm')?.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const email = document.getElementById('loginEmail').value;
+      const password = document.getElementById('loginPassword').value;
+      
+      const user = db.users.find(u => u.email === email && u.password === password);
+      
+      if (user) {
+        currentUser = user;
+        localStorage.setItem('attendify_current_user', JSON.stringify(currentUser));
+        showApp();
+      } else {
+        alert('Invalid email or password! Please create an account first.');
+      }
+    });
+    
+    function showApp() {
+      document.getElementById('loginContainer').style.display = 'none';
+      document.getElementById('welcomeContainer').style.display = 'none';
+      document.getElementById('appContainer').style.display = 'block';
+      document.getElementById('userNameDisplay').innerText = currentUser.name;
+      
+      const badge = document.getElementById('userRoleBadge');
+      badge.innerText = `Role: ${currentUser.role.toUpperCase()}`;
+      badge.className = `badge badge-${currentUser.role}`;
+      
+      if (currentUser.role === 'student') {
+        loadStudentDashboard();
+      } else if (currentUser.role === 'teacher') {
+        loadTeacherDashboard();
+      } else if (currentUser.role === 'parent') {
+        loadParentDashboard();
+      }
+    }
+    
+    function logout() {
+      currentUser = null;
+      localStorage.removeItem('attendify_current_user');
+      document.getElementById('appContainer').style.display = 'none';
+      document.getElementById('welcomeContainer').style.display = 'flex';
+    }
+    
+    // Student Dashboard
+    function loadStudentDashboard() {
+      const studentAttendance = db.attendance.filter(a => a.studentId === currentUser.id);
+      const totalDays = studentAttendance.length;
+      const presentDays = studentAttendance.filter(a => a.status === 'present').length;
+      const attendancePercent = totalDays ? ((presentDays / totalDays) * 100).toFixed(1) : 100;
+      const studentLeaves = db.leaves.filter(l => l.studentId === currentUser.id);
+      
+      const dashboard = document.getElementById('dashboardContent');
+      dashboard.innerHTML = `
+        <div class="stats-grid">
+          <div class="stat-card"><h3><i class="fas fa-calendar"></i> Total Days</h3><div class="stat-number">${totalDays || 0}</div></div>
+          <div class="stat-card"><h3><i class="fas fa-check-circle"></i> Present</h3><div class="stat-number">${presentDays}</div></div>
+          <div class="stat-card"><h3><i class="fas fa-chart-line"></i> Attendance</h3><div class="stat-number">${attendancePercent}%</div></div>
+        </div>
+        
+        <div class="features-grid">
+          <div class="feature-card" onclick="showQRCode()">
+            <div class="feature-icon"><i class="fas fa-qrcode"></i></div>
+            <h3>My QR Code</h3>
+            <p>Show your personal QR code to teacher for attendance scanning</p>
+          </div>
+          <div class="feature-card" onclick="viewAnnouncements()">
+            <div class="feature-icon"><i class="fas fa-bullhorn"></i></div>
+            <h3>Announcements</h3>
+            <p>View latest school announcements</p>
+          </div>
+          <div class="feature-card" onclick="viewAttendanceHistory()">
+            <div class="feature-icon"><i class="fas fa-history"></i></div>
+            <h3>Attendance History</h3>
+            <p>View your complete attendance records</p>
+          </div>
+          <div class="feature-card" onclick="showLeaveModal()">
+            <div class="feature-icon"><i class="fas fa-calendar-alt"></i></div>
+            <h3>Leave Application</h3>
+            <p>Submit leave requests</p>
+          </div>
+          <div class="feature-card" onclick="showHelpSupport()">
+            <div class="feature-icon"><i class="fas fa-headset"></i></div>
+            <h3>Help & Support</h3>
+            <p>Get assistance and FAQs</p>
+          </div>
+        </div>
+        
+        <div class="announcement-area">
+          <h3><i class="fas fa-megaphone"></i> Latest Announcements</h3>
+          <ul class="announcement-list">
+            ${db.announcements.slice(0, 3).map(a => `
+              <li><i class="fas fa-bullhorn" style="color:#2563eb;"></i><div><strong>${a.title}</strong><br><small>${a.content}</small><br><small style="color:#64748b;">📅 ${a.date}</small></div></li>
+            `).join('') || '<li style="color:#64748b;">No announcements yet</li>'}
+          </ul>
+        </div>
+        
+        <div class="announcement-area">
+          <h3><i class="fas fa-file-alt"></i> My Leave Applications</h3>
+          <ul class="announcement-list">
+            ${studentLeaves.length > 0 ? studentLeaves.map(l => `
+              <li><i class="fas fa-calendar-week" style="color:#10b981;"></i><div><strong>${l.fromDate} to ${l.toDate}</strong><br><small>${l.reason}</small></div><span class="status-badge status-${l.status}">${l.status.toUpperCase()}</span></li>
+            `).join('') : '<li style="color:#64748b;">No leave applications found</li>'}
+          </ul>
+        </div>
+      `;
+    }
+    
+    // Teacher Dashboard
+    function loadTeacherDashboard() {
+      const students = db.users.filter(u => u.role === 'student');
+      const today = new Date().toISOString().split('T')[0];
+      const presentToday = db.attendance.filter(a => a.date === today && a.status === 'present').length;
+      const attendancePercent = students.length ? ((presentToday / students.length) * 100).toFixed(1) : 0;
+      
+      const dashboard = document.getElementById('dashboardContent');
+      dashboard.innerHTML = `
+        <div class="stats-grid">
+          <div class="stat-card"><h3><i class="fas fa-users"></i> Total Students</h3><div class="stat-number">${students.length}</div></div>
+          <div class="stat-card"><h3><i class="fas fa-check-circle"></i> Present Today</h3><div class="stat-number">${presentToday}</div></div>
+          <div class="stat-card"><h3><i class="fas fa-chart-line"></i> Today's Rate</h3><div class="stat-number">${attendancePercent}%</div></div>
+        </div>
+        
+        <div class="features-grid">
+          <div class="feature-card" onclick="openQRScanner()">
+            <div class="feature-icon"><i class="fas fa-camera"></i></div>
+            <h3>QR Code Scanner</h3>
+            <p>Scan student QR codes to mark attendance instantly</p>
+          </div>
+          <div class="feature-card" onclick="viewAnnouncements()">
+            <div class="feature-icon"><i class="fas fa-bullhorn"></i></div>
+            <h3>Announcements</h3>
+            <p>View school announcements</p>
+          </div>
+          <div class="feature-card" onclick="viewAllLeaveApplications()">
+            <div class="feature-icon"><i class="fas fa-file-alt"></i></div>
+            <h3>Leave Requests</h3>
+            <p>Review student leave applications</p>
+          </div>
+          <div class="feature-card" onclick="viewAttendanceReport()">
+            <div class="feature-icon"><i class="fas fa-chart-line"></i></div>
+            <h3>Attendance Report</h3>
+            <p>View overall class attendance report</p>
+          </div>
+          <div class="feature-card" onclick="showHelpSupport()">
+            <div class="feature-icon"><i class="fas fa-headset"></i></div>
+            <h3>Help & Support</h3>
+            <p>Teacher resources and support</p>
+          </div>
+        </div>
+        
+        <div class="announcement-area">
+          <h3><i class="fas fa-clock"></i> Recent Activity</h3>
+          <ul class="announcement-list">
+            ${db.attendance.slice(0, 5).map(a => `
+              <li><i class="fas fa-qrcode" style="color:#10b981;"></i> ${a.studentName} marked ${a.status} at ${a.time || 'N/A'} on ${a.date}</li>
+            `).join('') || '<li>No recent activity</li>'}
+          </ul>
+        </div>
+      `;
+    }
+    
+    // Parent Dashboard
+    function loadParentDashboard() {
+      const linkedChildren = db.parentChildLinks.filter(link => link.parentId === currentUser.id);
+      const childrenIds = linkedChildren.map(link => link.childId);
+      const children = db.users.filter(u => childrenIds.includes(u.id));
+      
+      let totalPresent = 0;
+      let totalDays = 0;
+      const childrenData = [];
+      
+      children.forEach(child => {
+        const childAttendance = db.attendance.filter(a => a.studentId === child.id);
+        const present = childAttendance.filter(a => a.status === 'present').length;
+        const total = childAttendance.length;
+        const percent = total ? ((present/total)*100).toFixed(1) : 0;
+        
+        totalPresent += present;
+        totalDays += total;
+        childrenData.push({
+          ...child,
+          present: present,
+          total: total,
+          percent: percent,
+          recentAttendance: [...childAttendance].sort((a,b) => new Date(b.date) - new Date(a.date)).slice(0, 3)
+        });
+      });
+      
+      const overallPercent = totalDays ? ((totalPresent/totalDays)*100).toFixed(1) : 0;
+      
+      const dashboard = document.getElementById('dashboardContent');
+      
+      if (children.length === 0) {
+        dashboard.innerHTML = `
+          <div class="stats-grid">
+            <div class="stat-card"><h3><i class="fas fa-child"></i> Linked Children</h3><div class="stat-number">0</div></div>
+          </div>
+          <div class="announcement-area" style="text-align: center;">
+            <i class="fas fa-child" style="font-size: 4rem; color: #2563eb; margin-bottom: 1rem; display: block;"></i>
+            <h3>No Children Linked Yet</h3>
+            <p style="margin: 1rem 0;">Link your child using their roll number to view their attendance</p>
+            <button class="btn-primary" onclick="showLinkChildModal()" style="width: auto; padding: 0.75rem 1.5rem;">Link Child</button>
+          </div>
+          <div class="features-grid">
+            <div class="feature-card" onclick="viewAnnouncements()">
+              <div class="feature-icon"><i class="fas fa-bullhorn"></i></div>
+              <h3>Announcements</h3>
+              <p>School announcements</p>
+            </div>
+            <div class="feature-card" onclick="showHelpSupport()">
+              <div class="feature-icon"><i class="fas fa-headset"></i></div>
+              <h3>Help & Support</h3>
+              <p>Parent support resources</p>
+            </div>
+          </div>
+        `;
+        return;
+      }
+      
+      let childrenHtml = '<div class="children-list"><h3><i class="fas fa-child"></i> My Children</h3><div class="children-list-items">';
+      childrenData.forEach(child => {
+        childrenHtml += `
+          <div class="child-card">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+              <div>
+                <strong style="font-size: 1.1rem;">${child.name}</strong>
+                <br>
+                <small style="color: #64748b;">Roll No: ${child.rollNo} | Class: ${child.class}</small>
+              </div>
+              <span class="status-badge" style="background: ${child.percent >= 75 ? '#dcfce7' : '#fed7aa'}; color: ${child.percent >= 75 ? '#166534' : '#9a3412'}">
+                ${child.percent}% Attendance
+              </span>
+            </div>
+            <div style="display: flex; gap: 1rem; margin-top: 10px;">
+              <div><small>📊 Present: ${child.present}/${child.total}</small></div>
+              <div><small>✅ Last 3 days:</small></div>
+            </div>
+            <div style="margin-top: 8px;">
+              ${child.recentAttendance.map(a => `
+                <span style="display: inline-block; padding: 2px 8px; margin: 2px; border-radius: 12px; font-size: 0.7rem; background: ${a.status === 'present' ? '#dcfce7' : '#fee2e2'}; color: ${a.status === 'present' ? '#166534' : '#991b1b'}">
+                  ${a.date.split('-').slice(1).join('/')}: ${a.status}
+                </span>
+              `).join('') || '<small>No records yet</small>'}
+            </div>
+            <button class="btn-secondary" onclick="viewChildDetails(${child.id})" style="margin-top: 10px; padding: 6px 12px; font-size: 0.8rem; width: auto;">View Full Details</button>
+          </div>
+        `;
+      });
+      childrenHtml += '</div></div>';
+      
+      dashboard.innerHTML = `
+        <div class="stats-grid">
+          <div class="stat-card"><h3><i class="fas fa-child"></i> My Children</h3><div class="stat-number">${children.length}</div></div>
+          <div class="stat-card"><h3><i class="fas fa-check-circle"></i> Overall Present</h3><div class="stat-number">${totalPresent}/${totalDays}</div></div>
+          <div class="stat-card"><h3><i class="fas fa-chart-line"></i> Overall Rate</h3><div class="stat-number">${overallPercent}%</div></div>
+        </div>
+        
+        ${childrenHtml}
+        
+        <div class="features-grid">
+          <div class="feature-card" onclick="showLinkChildModal()">
+            <div class="feature-icon"><i class="fas fa-plus-circle"></i></div>
+            <h3>Link Another Child</h3>
+            <p>Add another child using their roll number</p>
+          </div>
+          <div class="feature-card" onclick="viewAnnouncements()">
+            <div class="feature-icon"><i class="fas fa-bullhorn"></i></div>
+            <h3>Announcements</h3>
+            <p>School announcements</p>
+          </div>
+          <div class="feature-card" onclick="showHelpSupport()">
+            <div class="feature-icon"><i class="fas fa-headset"></i></div>
+            <h3>Help & Support</h3>
+            <p>Parent support resources</p>
+          </div>
+        </div>
+        
+        <div class="announcement-area">
+          <h3><i class="fas fa-megaphone"></i> Latest Announcements</h3>
+          <ul class="announcement-list">
+            ${db.announcements.slice(0, 3).map(a => `
+              <li><i class="fas fa-bullhorn" style="color:#2563eb;"></i><div><strong>${a.title}</strong><br><small>${a.content}</small><br><small style="color:#64748b;">📅 ${a.date}</small></div></li>
+            `).join('') || '<li style="color:#64748b;">No announcements yet</li>'}
+          </ul>
+        </div>
+      `;
+    }
+    
+    // QR Scanner Functions for Teacher
+    async function openQRScanner() {
+      document.getElementById('qrScannerModal').style.display = 'flex';
+      document.getElementById('scannerStatus').innerHTML = '';
+      document.getElementById('manualStudentId').value = '';
+      
+      try {
+        if (html5QrCode) {
+          await html5QrCode.stop();
+        }
+        
+        html5QrCode = new Html5Qrcode("qr-reader");
+        const cameras = await Html5Qrcode.getCameras();
+        
+        if (cameras && cameras.length) {
+          currentCameraId = cameras[0].id;
+          await startScanner(currentCameraId);
+        } else {
+          document.getElementById('scannerStatus').innerHTML = '<div class="scanner-status error">No cameras found. Please use manual entry.</div>';
+        }
+      } catch (err) {
+        console.error("Error initializing scanner:", err);
+        document.getElementById('scannerStatus').innerHTML = '<div class="scanner-status error">Camera access denied. Please use manual entry.</div>';
+      }
+    }
+    
+    async function startScanner(cameraId) {
+      if (!html5QrCode) return;
+      
+      await html5QrCode.start(
+        cameraId,
+        {
+          fps: 10,
+          qrbox: { width: 250, height: 250 }
+        },
+        (decodedText, decodedResult) => {
+          // QR Code successfully scanned
+          processScannedQR(decodedText);
+        },
+        (errorMessage) => {
+          // Scanning in progress, ignore errors
+          console.log("Scanning...");
+        }
+      );
+    }
+    
+    function processScannedQR(scannedData) {
+      // Stop scanner after successful scan
+      if (html5QrCode) {
+        html5QrCode.stop();
+      }
+      
+      // QR code should contain student ID or roll number
+      const student = db.users.find(u => 
+        (u.role === 'student') && 
+        (u.id.toString() === scannedData || u.rollNo === scannedData)
+      );
+      
+      if (student) {
+        markAttendance(student.id, student.name);
+      } else {
+        document.getElementById('scannerStatus').innerHTML = `<div class="scanner-status error">Student not found: ${scannedData}</div>`;
+        // Restart scanner after 2 seconds
+        setTimeout(() => {
+          if (currentCameraId) startScanner(currentCameraId);
+        }, 2000);
+      }
+    }
+    
+    function markAttendance(studentId, studentName) {
+      const today = new Date().toISOString().split('T')[0];
+      const existing = db.attendance.find(a => a.studentId === studentId && a.date === today);
+      
+      if (existing) {
+        document.getElementById('scannerStatus').innerHTML = `<div class="scanner-status error">${studentName} already marked present today!</div>`;
+      } else {
+        db.attendance.push({
+          id: Date.now(),
+          studentId: studentId,
+          studentName: studentName,
+          date: today,
+          status: 'present',
+          time: new Date().toLocaleTimeString(),
+          markedBy: currentUser.name
+        });
+        saveToLocalStorage();
+        document.getElementById('scannerStatus').innerHTML = `<div class="scanner-status success">✅ Attendance marked for ${studentName}</div>`;
+        
+        // Add notification for parent
+        const parentLink = db.parentChildLinks.find(link => link.childId === studentId);
+        if (parentLink) {
+          db.notifications.push({
+            id: Date.now(),
+            userId: parentLink.parentId,
+            message: `Your child ${studentName} was marked present on ${today} at ${new Date().toLocaleTimeString()}`,
+            date: new Date().toLocaleString(),
+            read: false
+          });
+          saveToLocalStorage();
+        }
+        
+        // Refresh teacher dashboard
+        loadTeacherDashboard();
+        
+        // Auto close after 2 seconds
+        setTimeout(() => {
+          stopScannerAndClose();
+        }, 2000);
+      }
+    }
+    
+    function markManualAttendance() {
+      const studentId = document.getElementById('manualStudentId').value.trim();
+      if (!studentId) {
+        alert('Please enter Student ID or Roll Number');
+        return;
+      }
+      
+      const student = db.users.find(u => 
+        (u.role === 'student') && 
+        (u.id.toString() === studentId || u.rollNo === studentId)
+      );
+      
+      if (student) {
+        const today = new Date().toISOString().split('T')[0];
+        const existing = db.attendance.find(a => a.studentId === student.id && a.date === today);
+        
+        if (existing) {
+          alert(`${student.name} already marked present today!`);
+        } else {
+          db.attendance.push({
+            id: Date.now(),
+            studentId: student.id,
+            studentName: student.name,
+            date: today,
+            status: 'present',
+            time: new Date().toLocaleTimeString(),
+            markedBy: currentUser.name
+          });
+          saveToLocalStorage();
+          alert(`✅ Attendance marked for ${student.name}`);
+          document.getElementById('manualStudentId').value = '';
+          loadTeacherDashboard();
+        }
+      } else {
+        alert('Student not found! Please check the ID/Roll Number.');
+      }
+    }
+    
+    async function switchCamera() {
+      try {
+        const cameras = await Html5Qrcode.getCameras();
+        if (cameras && cameras.length > 1) {
+          const currentIndex = cameras.findIndex(c => c.id === currentCameraId);
+          const nextIndex = (currentIndex + 1) % cameras.length;
+          currentCameraId = cameras[nextIndex].id;
+          
+          if (html5QrCode) {
+            await html5QrCode.stop();
+            await startScanner(currentCameraId);
+          }
+        } else {
+          alert('Only one camera available');
+        }
+      } catch (err) {
+        console.error("Error switching camera:", err);
+      }
+    }
+    
+    async function stopScannerAndClose() {
+      if (html5QrCode) {
+        try {
+          await html5QrCode.stop();
+        } catch (e) {
+          console.log("Scanner already stopped");
+        }
+      }
+      document.getElementById('qrScannerModal').style.display = 'none';
+      document.getElementById('scannerStatus').innerHTML = '';
+    }
+    
+    // Link Child Functions
+    function showLinkChildModal() {
+      document.getElementById('linkChildModal').style.display = 'flex';
+      document.getElementById('linkChildRollNo').value = '';
+    }
+    
+    function closeLinkChildModal() {
+      document.getElementById('linkChildModal').style.display = 'none';
+    }
+    
+    function linkChild() {
+      const rollNo = document.getElementById('linkChildRollNo').value.trim();
+      if (!rollNo) {
+        alert('Please enter your child\'s roll number');
+        return;
+      }
+      
+      const child = db.users.find(u => u.role === 'student' && u.rollNo === rollNo);
+      if (!child) {
+        alert('No student found with this roll number. Please check and try again.');
+        return;
+      }
+      
+      const alreadyLinked = db.parentChildLinks.some(link => link.parentId === currentUser.id && link.childId === child.id);
+      if (alreadyLinked) {
+        alert(`${child.name} is already linked to your account.`);
+        closeLinkChildModal();
+        return;
+      }
+      
+      db.parentChildLinks.push({
+        id: Date.now(),
+        parentId: currentUser.id,
+        childId: child.id,
+        childName: child.name,
+        childRollNo: child.rollNo,
+        linkedAt: new Date().toISOString()
+      });
+      saveToLocalStorage();
+      
+      alert(`Successfully linked ${child.name} (${child.rollNo}) to your account!`);
+      closeLinkChildModal();
+      loadParentDashboard();
+    }
+    
+    function viewChildDetails(childId) {
+      const child = db.users.find(u => u.id === childId);
+      if (!child) return;
+      
+      const childAttendance = db.attendance.filter(a => a.studentId === childId);
+      const present = childAttendance.filter(a => a.status === 'present').length;
+      const total = childAttendance.length;
+      const percent = total ? ((present/total)*100).toFixed(1) : 0;
+      
+      let historyHtml = `<div style="max-height: 400px; overflow-y: auto;">
+        <div style="background: #f8fafc; padding: 1rem; border-radius: 16px; margin-bottom: 1rem;">
+          <strong>${child.name}</strong><br>
+          Roll No: ${child.rollNo} | Class: ${child.class}<br>
+          Attendance: ${present}/${total} (${percent}%)
+        </div>
+        <h4>Attendance History</h4>`;
+      
+      childAttendance.sort((a,b) => new Date(b.date) - new Date(a.date)).forEach(a => {
+        historyHtml += `<div style="padding: 10px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between;">
+          <span>${a.date}</span>
+          <span style="color: ${a.status === 'present' ? '#10b981' : '#ef4444'}">${a.status.toUpperCase()}</span>
+          <span>${a.time || '-'}</span>
+        </div>`;
+      });
+      historyHtml += '</div>';
+      
+      const modal = document.createElement('div');
+      modal.className = 'modal';
+      modal.style.display = 'flex';
+      modal.innerHTML = `<div class="modal-content"><h3>Child Details: ${child.name}</h3>${historyHtml}<button class="btn-secondary" onclick="this.closest('.modal').remove()">Close</button></div>`;
+      document.body.appendChild(modal);
+    }
+    
+    // Common Functions
+    function showQRCode() {
+      document.getElementById('qrStudentId').innerHTML = `${currentUser.rollNo}<br>${currentUser.name}<br>${currentUser.class}`;
+      document.getElementById('qrModal').style.display = 'flex';
+    }
+    
+    function closeQRModal() { document.getElementById('qrModal').style.display = 'none'; }
+    
+    function viewAnnouncements() {
+      const announcementList = document.getElementById('announcementList');
+      if (db.announcements.length === 0) {
+        announcementList.innerHTML = '<div style="padding: 12px; text-align: center; color: #64748b;">No announcements yet</div>';
+      } else {
+        announcementList.innerHTML = db.announcements.map(a => `
+          <div style="padding: 12px; border-bottom: 1px solid #e2e8f0;">
+            <strong>${a.title}</strong><br>
+            <small>${a.content}</small><br>
+            <small style="color: #64748b;">📅 ${a.date}</small>
+          </div>
+        `).join('');
+      }
+      document.getElementById('announcementModal').style.display = 'flex';
+    }
+    
+    function closeAnnouncementModal() { document.getElementById('announcementModal').style.display = 'none'; }
+    
+    function viewAttendanceHistory() {
+      const studentAttendance = db.attendance.filter(a => a.studentId === currentUser.id);
+      let historyHtml = '<div style="max-height: 400px; overflow-y: auto;">';
+      if (studentAttendance.length === 0) {
+        historyHtml += '<div style="padding: 20px; text-align: center; color: #64748b;">No attendance records yet</div>';
+      } else {
+        studentAttendance.sort((a,b) => new Date(b.date) - new Date(a.date)).forEach(a => {
+          historyHtml += `<div style="padding: 10px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between;"><span>${a.date}</span><span style="color: ${a.status === 'present' ? '#10b981' : '#ef4444'}">${a.status.toUpperCase()}</span><span>${a.time || '-'}</span></div>`;
+        });
+      }
+      historyHtml += '</div>';
+      
+      const modal = document.createElement('div');
+      modal.className = 'modal';
+      modal.style.display = 'flex';
+      modal.innerHTML = `<div class="modal-content"><h3>Attendance History</h3>${historyHtml}<button class="btn-secondary" onclick="this.closest('.modal').remove()">Close</button></div>`;
+      document.body.appendChild(modal);
+    }
+    
+    function showLeaveModal() { document.getElementById('leaveModal').style.display = 'flex'; }
+    function closeLeaveModal() { document.getElementById('leaveModal').style.display = 'none'; document.getElementById('leaveApplicationForm').reset(); }
+    
+    document.getElementById('leaveApplicationForm')?.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const fromDate = document.getElementById('leaveFromDate').value;
+      const toDate = document.getElementById('leaveToDate').value;
+      const reason = document.getElementById('leaveReason').value;
+      
+      db.leaves.push({
+        id: Date.now(),
+        studentId: currentUser.id,
+        studentName: currentUser.name,
+        rollNo: currentUser.rollNo,
+        fromDate: fromDate,
+        toDate: toDate,
+        reason: reason,
+        status: 'pending',
+        appliedAt: new Date().toISOString()
+      });
+      saveToLocalStorage();
+      alert('Leave application submitted successfully!');
+      closeLeaveModal();
+      loadStudentDashboard();
+    });
+    
+    function viewAllLeaveApplications() {
+      const leaves = db.leaves;
+      let html = '<div style="max-height: 400px; overflow-y: auto;">';
+      if (leaves.length === 0) {
+        html += '<div style="padding: 20px; text-align: center; color: #64748b;">No leave applications yet</div>';
+      } else {
+        leaves.forEach(l => {
+          html += `<div style="padding: 12px; border-bottom: 1px solid #e2e8f0;"><strong>${l.studentName}</strong> (${l.rollNo})<br>📅 ${l.fromDate} to ${l.toDate}<br>📝 ${l.reason}<br><span class="status-badge status-${l.status}">${l.status.toUpperCase()}</span></div>`;
+        });
+      }
+      html += '</div>';
+      
+      const modal = document.createElement('div');
+      modal.className = 'modal';
+      modal.style.display = 'flex';
+      modal.innerHTML = `<div class="modal-content"><h3>Leave Applications</h3>${html}<button class="btn-secondary" onclick="this.closest('.modal').remove()">Close</button></div>`;
+      document.body.appendChild(modal);
+    }
+    
+    function viewAttendanceReport() {
+      const students = db.users.filter(u => u.role === 'student');
+      let html = '<div style="max-height: 400px; overflow-y: auto;"><table style="width:100%"> <thead><tr><th>Student</th><th>Present</th><th>Total</th><th>%</th></tr></thead><tbody>';
+      if (students.length === 0) {
+        html += '<tr><td colspan="4" style="text-align:center; padding:20px;">No students registered yet</td></tr>';
+      } else {
+        students.forEach(s => {
+          const studentAtt = db.attendance.filter(a => a.studentId === s.id);
+          const present = studentAtt.filter(a => a.status === 'present').length;
+          const total = studentAtt.length;
+          const percent = total ? ((present/total)*100).toFixed(1) : 0;
+          html += `<tr><td>${s.name}</td><td>${present}</td><td>${total}</td><td>${percent}%</td></tr>`;
+        });
+      }
+      html += '</tbody></table></div>';
+      
+      const modal = document.createElement('div');
+      modal.className = 'modal';
+      modal.style.display = 'flex';
+      modal.innerHTML = `<div class="modal-content"><h3>Attendance Report</h3>${html}<button class="btn-secondary" onclick="this.closest('.modal').remove()">Close</button></div>`;
+      document.body.appendChild(modal);
+    }
+    
+    function showHelpSupport() { document.getElementById('helpModal').style.display = 'flex'; }
+    function closeHelpModal() { document.getElementById('helpModal').style.display = 'none'; }
+    function showNotifications() { 
+      const count = db.notifications.filter(n => n.userId === currentUser.id && !n.read).length;
+      if (count === 0) {
+        alert('🔔 No new notifications');
+      } else {
+        alert(`🔔 You have ${count} new notification(s)`);
+      }
+    }
+    
+    // Load data and check for existing session
+    loadFromLocalStorage();
+    
+    const savedUser = localStorage.getItem('attendify_current_user');
+    if (savedUser) {
+      currentUser = JSON.parse(savedUser);
+      setTimeout(() => {
+        document.getElementById('splashScreen').style.display = 'none';
+        showApp();
+      }, 1000);
+    }
+    
+    // Make functions global
+    window.selectSignupRole = selectSignupRole;
+    window.showSignupModal = showSignupModal;
+    window.closeSignupModal = closeSignupModal;
+    window.showLoginScreen = showLoginScreen;
+    window.showWelcomeScreen = showWelcomeScreen;
+    window.logout = logout;
+    window.showQRCode = showQRCode;
+    window.closeQRModal = closeQRModal;
+    window.openQRScanner = openQRScanner;
+    window.stopScannerAndClose = stopScannerAndClose;
+    window.switchCamera = switchCamera;
+    window.markManualAttendance = markManualAttendance;
+    window.viewAnnouncements = viewAnnouncements;
+    window.closeAnnouncementModal = closeAnnouncementModal;
+    window.viewAttendanceHistory = viewAttendanceHistory;
+    window.showLeaveModal = showLeaveModal;
+    window.closeLeaveModal = closeLeaveModal;
+    window.viewAllLeaveApplications = viewAllLeaveApplications;
+    window.viewAttendanceReport = viewAttendanceReport;
+    window.showHelpSupport = showHelpSupport;
+    window.closeHelpModal = closeHelpModal;
+    window.showNotifications = showNotifications;
+    window.showLinkChildModal = showLinkChildModal;
+    window.closeLinkChildModal = closeLinkChildModal;
+    window.linkChild = linkChild;
+    window.viewChildDetails = viewChildDetails;
+  </script>
+</body>
+</html>
