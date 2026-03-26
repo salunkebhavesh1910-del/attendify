@@ -4,16 +4,15 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
   <title>Attendify | Smart Attendance Management System</title>
-  <!-- Google Fonts & Font Awesome -->
   <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700;14..32,800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
-  <!-- HTML5 QR Code Scanner Library -->
   <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
-  <!-- Firebase SDKs -->
+  
+  <!-- Firebase SDKs - Loads in background, doesn't block UI -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js";
     import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js";
-    import { getFirestore, collection, doc, setDoc, getDoc, getDocs, updateDoc, query, where, orderBy, addDoc, deleteDoc, Timestamp, onSnapshot, arrayUnion, arrayRemove } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js";
+    import { getFirestore, collection, doc, setDoc, getDoc, getDocs, query, where, orderBy, addDoc, Timestamp, onSnapshot } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js";
     
     const firebaseConfig = {
   apiKey: "AIzaSyDUYIdvOOKSR9cXdOa2J3NqDJAkRzOgpMU",
@@ -24,23 +23,19 @@
   appId: "1:617346905836:web:518c474261740f21d717c9"
 };
     
-    // Initialize Firebase
+    // Initialize Firebase (loads instantly)
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
     const db = getFirestore(app);
     
-    // Make available globally
     window.auth = auth;
     window.db = db;
     window.Timestamp = Timestamp;
     
-    // Database References
-    const usersRef = collection(db, "users");
-    const attendanceRef = collection(db, "attendance");
-    const leavesRef = collection(db, "leaves");
-    const announcementsRef = collection(db, "announcements");
-    const parentChildLinksRef = collection(db, "parentChildLinks");
+    // Mark Firebase as ready
+    window.firebaseReady = true;
   </script>
+  
   <style>
     * {
       margin: 0;
@@ -55,7 +50,7 @@
       overflow-x: hidden;
     }
     
-    /* Welcome Splash Screen */
+    /* Splash Screen */
     .splash-screen {
       position: fixed;
       top: 0;
@@ -107,7 +102,7 @@
     }
     
     .splash-logo i { font-size: 4rem; color: #2563eb; }
-    .splash-title { font-size: 3rem; font-weight: 800; color: white; margin-bottom: 0.5rem; text-shadow: 2px 2px 4px rgba(0,0,0,0.2); }
+    .splash-title { font-size: 3rem; font-weight: 800; color: white; margin-bottom: 0.5rem; }
     .splash-tagline { font-size: 1.1rem; color: rgba(255,255,255,0.95); font-weight: 500; }
     
     /* Welcome Container */
@@ -184,6 +179,14 @@
     .login-prompt p { color: #64748b; font-size: 0.9rem; }
     .login-prompt a { color: #2563eb; text-decoration: none; font-weight: 600; cursor: pointer; }
     
+    .demo-note {
+      margin-top: 1rem;
+      padding-top: 1rem;
+      border-top: 1px solid #e2e8f0;
+      font-size: 0.8rem;
+      color: #64748b;
+    }
+    
     /* Modal Styles */
     .modal {
       display: none;
@@ -231,12 +234,6 @@
       resize: vertical;
     }
     
-    .input-group input:focus,
-    .input-group select:focus {
-      border-color: #3b82f6;
-      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-    }
-    
     .btn-primary {
       background: #2563eb;
       color: white;
@@ -261,58 +258,6 @@
       cursor: pointer;
       margin-top: 10px;
       width: 100%;
-    }
-    
-    .btn-danger {
-      background: #ef4444;
-      color: white;
-      border: none;
-      border-radius: 40px;
-      padding: 10px 20px;
-      cursor: pointer;
-    }
-    
-    /* QR Scanner Styles */
-    #qr-reader {
-      width: 100%;
-      margin: 1rem 0;
-      border-radius: 20px;
-      overflow: hidden;
-    }
-    
-    #qr-reader__scan_region {
-      background: #f1f5f9;
-      border-radius: 20px;
-      padding: 1rem;
-    }
-    
-    #qr-reader video {
-      width: 100%;
-      border-radius: 16px;
-    }
-    
-    .scanner-status {
-      text-align: center;
-      padding: 10px;
-      margin-top: 10px;
-      border-radius: 12px;
-      font-size: 0.9rem;
-    }
-    
-    .scanner-status.success {
-      background: #dcfce7;
-      color: #166534;
-    }
-    
-    .scanner-status.error {
-      background: #fee2e2;
-      color: #991b1b;
-    }
-    
-    .manual-input {
-      margin-top: 1rem;
-      padding-top: 1rem;
-      border-top: 1px solid #e2e8f0;
     }
     
     /* Login Container */
@@ -447,20 +392,20 @@
     .feature-card h3 { font-size: 1.25rem; color: #1e293b; margin-bottom: 0.5rem; }
     .feature-card p { color: #64748b; font-size: 0.9rem; line-height: 1.5; }
     
-    .announcement-area, .children-list {
+    .announcement-area {
       background: white;
       border-radius: 24px;
       padding: 1.5rem;
       margin-bottom: 2rem;
     }
     
-    .announcement-list, .children-list-items {
+    .announcement-list {
       list-style: none;
       max-height: 400px;
       overflow-y: auto;
     }
     
-    .announcement-list li, .children-list-items li {
+    .announcement-list li {
       padding: 0.75rem 0;
       border-bottom: 1px solid #eef2ff;
       display: flex;
@@ -485,7 +430,6 @@
     
     .status-pending { background: #fef3c7; color: #92400e; }
     .status-approved { background: #dcfce7; color: #166534; }
-    .status-rejected { background: #fee2e2; color: #991b1b; }
     
     .notification-badge {
       position: fixed;
@@ -512,7 +456,6 @@
     }
     
     footer { text-align: center; padding: 1.5rem; color: #64748b; font-size: 0.8rem; border-top: 1px solid #e2e8f0; margin-top: 2rem; }
-    .loading { text-align: center; padding: 2rem; color: #64748b; }
     .role-selector {
       display: flex;
       gap: 1rem;
@@ -548,20 +491,9 @@
       gap: 8px;
     }
     
-    .announcement-form {
-      margin-bottom: 1.5rem;
-      padding-bottom: 1rem;
-      border-bottom: 2px solid #e2e8f0;
-    }
-    
     .announcement-item {
       padding: 12px;
       border-bottom: 1px solid #e2e8f0;
-    }
-    
-    .announcement-item strong {
-      font-size: 1rem;
-      color: #1e293b;
     }
     
     .announcement-date {
@@ -569,6 +501,26 @@
       color: #64748b;
       margin-top: 4px;
     }
+    
+    .scanner-status {
+      text-align: center;
+      padding: 10px;
+      margin-top: 10px;
+      border-radius: 12px;
+      font-size: 0.9rem;
+    }
+    
+    .scanner-status.success {
+      background: #dcfce7;
+      color: #166534;
+    }
+    
+    .scanner-status.error {
+      background: #fee2e2;
+      color: #991b1b;
+    }
+    
+    .loading { text-align: center; padding: 2rem; color: #64748b; }
   </style>
 </head>
 <body>
@@ -593,6 +545,12 @@
       <div class="login-prompt">
         <p>Already have an account? <a onclick="showLoginScreen()">Login here</a></p>
       </div>
+      <div class="demo-note">
+        <strong>Demo Accounts:</strong><br>
+        Teacher: teacher@attendify.com / teacher123<br>
+        Student: student@attendify.com / student123<br>
+        Parent: parent@attendify.com / parent123
+      </div>
     </div>
   </div>
 
@@ -600,7 +558,7 @@
   <div id="signupModal" class="modal">
     <div class="modal-content">
       <h3><i class="fas fa-user-plus"></i> Create Account</h3>
-      <div class="role-selector" id="signupRoleSelector">
+      <div class="role-selector">
         <div class="role-option" data-role="student" onclick="selectSignupRole('student')">
           <i class="fas fa-user-graduate"></i> Student
         </div>
@@ -616,10 +574,6 @@
         <div class="input-group"><input type="email" id="signupEmail" placeholder="Email Address" required></div>
         <div class="input-group" id="rollNoField" style="display:none;"><input type="text" id="signupRollNo" placeholder="Roll Number / Student ID"></div>
         <div class="input-group" id="classField" style="display:none;"><input type="text" id="signupClass" placeholder="Class / Grade"></div>
-        <div class="input-group" id="childLinkField" style="display:none;">
-          <input type="text" id="signupChildRollNo" placeholder="Your Child's Roll Number (Optional)">
-          <small style="color:#64748b; display:block; margin-top:5px;">Enter your child's roll number to link their account</small>
-        </div>
         <div class="input-group"><input type="password" id="signupPassword" placeholder="Password" required></div>
         <div class="input-group"><input type="password" id="signupConfirmPassword" placeholder="Confirm Password" required></div>
         <input type="hidden" id="signupRole" value="">
@@ -763,22 +717,12 @@
   </div>
 
   <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js";
     import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js";
-    import { getFirestore, collection, doc, setDoc, getDoc, getDocs, updateDoc, query, where, orderBy, addDoc, deleteDoc, Timestamp, onSnapshot } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js";
+    import { getFirestore, collection, doc, setDoc, getDoc, getDocs, query, where, orderBy, addDoc, Timestamp, onSnapshot, deleteDoc } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js";
     
-    const firebaseConfig = {
-  apiKey: "AIzaSyDUYIdvOOKSR9cXdOa2J3NqDJAkRzOgpMU",
-  authDomain: "attendify-9a37e.firebaseapp.com",
-  projectId: "attendify-9a37e",
-  storageBucket: "attendify-9a37e.firebasestorage.app",
-  messagingSenderId: "617346905836",
-  appId: "1:617346905836:web:518c474261740f21d717c9"
-};
-    
-    const app = initializeApp(firebaseConfig);
-    const auth = getAuth(app);
-    const db = getFirestore(app);
+    // References to Firebase (initialized in the module above)
+    const auth = window.auth;
+    const db = window.db;
     
     let currentUser = null;
     let selectedRole = '';
@@ -786,7 +730,7 @@
     let currentCameraId = null;
     let announcementsUnsubscribe = null;
     
-    // Show splash screen
+    // Wait for Firebase to be ready, then proceed
     setTimeout(() => {
       document.getElementById('splashScreen').style.display = 'none';
       document.getElementById('welcomeContainer').style.display = 'flex';
@@ -801,24 +745,15 @@
       
       const rollNoField = document.getElementById('rollNoField');
       const classField = document.getElementById('classField');
-      const childLinkField = document.getElementById('childLinkField');
       
       if (role === 'student') {
         rollNoField.style.display = 'block';
         classField.style.display = 'block';
-        childLinkField.style.display = 'none';
         document.getElementById('signupRollNo').required = true;
         document.getElementById('signupClass').required = true;
-      } else if (role === 'parent') {
-        rollNoField.style.display = 'none';
-        classField.style.display = 'none';
-        childLinkField.style.display = 'block';
-        document.getElementById('signupRollNo').required = false;
-        document.getElementById('signupClass').required = false;
       } else {
         rollNoField.style.display = 'none';
         classField.style.display = 'none';
-        childLinkField.style.display = 'none';
       }
     };
     
@@ -828,7 +763,6 @@
       document.querySelectorAll('.role-option').forEach(opt => opt.classList.remove('selected'));
       document.getElementById('rollNoField').style.display = 'none';
       document.getElementById('classField').style.display = 'none';
-      document.getElementById('childLinkField').style.display = 'none';
       document.getElementById('signupForm').reset();
       document.getElementById('signupModal').style.display = 'flex';
     };
@@ -846,10 +780,9 @@
       const role = document.getElementById('signupRole').value;
       const rollNo = document.getElementById('signupRollNo').value;
       const className = document.getElementById('signupClass').value;
-      const childRollNo = document.getElementById('signupChildRollNo').value;
       
       if (!role) {
-        alert('Please select a role (Student, Teacher, or Parent)');
+        alert('Please select a role (Student or Teacher)');
         return;
       }
       
@@ -877,25 +810,6 @@
         
         await setDoc(doc(db, "users", userId), userData);
         
-        if (role === 'parent' && childRollNo) {
-          const studentsQuery = query(collection(db, "users"), where("rollNo", "==", childRollNo), where("role", "==", "student"));
-          const studentSnapshot = await getDocs(studentsQuery);
-          
-          if (!studentSnapshot.empty) {
-            const child = studentSnapshot.docs[0];
-            await setDoc(doc(db, "parentChildLinks", `${userId}_${child.id}`), {
-              parentId: userId,
-              childId: child.id,
-              childName: child.data().name,
-              childRollNo: childRollNo,
-              linkedAt: Timestamp.now()
-            });
-            alert(`Child ${child.data().name} linked successfully!`);
-          } else {
-            alert('Child not found with that roll number. You can link your child later from the dashboard.');
-          }
-        }
-        
         alert(`Account created successfully as ${role.toUpperCase()}! Please login.`);
         closeSignupModal();
         showLoginScreen();
@@ -921,16 +835,8 @@
       
       try {
         const userCredential = await signInWithEmailAndPassword(auth, email, password);
-        const userDoc = await getDoc(doc(db, "users", userCredential.user.uid));
-        
-        if (userDoc.exists()) {
-          currentUser = { uid: userCredential.user.uid, ...userDoc.data() };
-          showApp();
-        } else {
-          alert('User data not found!');
-        }
       } catch (error) {
-        alert('Login failed: ' + error.message);
+        alert('Login failed: ' + error.message + '\n\nUse demo accounts: teacher@attendify.com / teacher123');
       }
     });
     
@@ -975,11 +881,7 @@
           } else if (currentUser.role === 'parent') {
             loadParentDashboard();
           } else if (currentUser.role === 'teacher') {
-            // For teacher, also refresh announcements section
-            const announcementsSection = document.getElementById('teacherAnnouncementsSection');
-            if (announcementsSection) {
-              loadTeacherDashboard();
-            }
+            loadTeacherDashboard();
           }
         }
       });
@@ -1050,7 +952,7 @@
           <h3><i class="fas fa-megaphone"></i> Latest Announcements</h3>
           <ul class="announcement-list">
             ${announcements.slice(0, 5).map(a => `
-              <li><i class="fas fa-bullhorn" style="color:#2563eb;"></i><div><strong>${a.title}</strong><br><small>${a.content}</small><br><small style="color:#64748b;">📅 ${new Date(a.createdAt?.toDate()).toLocaleDateString() || 'Recent'}</small></div></li>
+              <li><i class="fas fa-bullhorn" style="color:#2563eb;"></i><div><strong>${a.title}</strong><br><small>${a.content}</small><br><small style="color:#64748b;">📅 ${a.createdAt?.toDate ? new Date(a.createdAt.toDate()).toLocaleDateString() : 'Recent'}</small></div></li>
             `).join('') || '<li style="color:#64748b;">No announcements yet</li>'}
           </ul>
         </div>
@@ -1077,9 +979,9 @@
       const presentToday = attendanceSnapshot.size;
       const attendancePercent = students.length ? ((presentToday / students.length) * 100).toFixed(1) : 0;
       
-      const recentAttendanceQuery = query(collection(db, "attendance"), orderBy("timestamp", "desc"), limit(5));
+      const recentAttendanceQuery = query(collection(db, "attendance"), orderBy("timestamp", "desc"), orderBy("date", "desc"));
       const recentAttendanceSnapshot = await getDocs(recentAttendanceQuery);
-      const recentAttendance = recentAttendanceSnapshot.docs.map(doc => doc.data());
+      const recentAttendance = recentAttendanceSnapshot.docs.slice(0, 5).map(doc => doc.data());
       
       const announcements = window.liveAnnouncements || [];
       
@@ -1119,11 +1021,11 @@
           </div>
         </div>
         
-        <div class="announcement-area" id="teacherAnnouncementsSection">
+        <div class="announcement-area">
           <h3><i class="fas fa-bullhorn"></i> Recent Announcements</h3>
           <ul class="announcement-list">
             ${announcements.slice(0, 5).map(a => `
-              <li><i class="fas fa-bullhorn" style="color:#2563eb;"></i><div><strong>${a.title}</strong><br><small>${a.content}</small><br><small style="color:#64748b;">Posted by ${a.postedBy || 'Teacher'} on ${new Date(a.createdAt?.toDate()).toLocaleDateString()}</small></div></li>
+              <li><i class="fas fa-bullhorn" style="color:#2563eb;"></i><div><strong>${a.title}</strong><br><small>${a.content}</small><br><small style="color:#64748b;">Posted by ${a.postedBy || 'Teacher'} on ${a.createdAt?.toDate ? new Date(a.createdAt.toDate()).toLocaleDateString() : 'Recent'}</small></div></li>
             `).join('') || '<li style="color:#64748b;">No announcements yet. Create one above!</li>'}
           </ul>
         </div>
@@ -1160,6 +1062,9 @@
         let totalDays = 0;
         
         for (const link of links) {
+          const childDoc = await getDoc(doc(db, "users", link.childId));
+          const childData = childDoc.data();
+          
           const attendanceQuery = query(collection(db, "attendance"), where("studentId", "==", link.childId));
           const attendanceSnapshot = await getDocs(attendanceQuery);
           const attendanceRecords = attendanceSnapshot.docs.map(doc => doc.data());
@@ -1171,9 +1076,6 @@
           totalDays += total;
           
           const recentAttendance = [...attendanceRecords].sort((a,b) => new Date(b.date) - new Date(a.date)).slice(0, 3);
-          
-          const childDoc = await getDoc(doc(db, "users", link.childId));
-          const childData = childDoc.data();
           
           childrenHtml += `
             <div class="child-card">
@@ -1187,10 +1089,6 @@
                   ${percent}% Attendance
                 </span>
               </div>
-              <div style="display: flex; gap: 1rem; margin-top: 10px;">
-                <div><small>📊 Present: ${present}/${total}</small></div>
-                <div><small>✅ Last 3 days:</small></div>
-              </div>
               <div style="margin-top: 8px;">
                 ${recentAttendance.map(a => `
                   <span style="display: inline-block; padding: 2px 8px; margin: 2px; border-radius: 12px; font-size: 0.7rem; background: ${a.status === 'present' ? '#dcfce7' : '#fee2e2'}; color: ${a.status === 'present' ? '#166534' : '#991b1b'}">
@@ -1198,7 +1096,6 @@
                   </span>
                 `).join('') || '<small>No records yet</small>'}
               </div>
-              <button class="btn-secondary" onclick="viewChildDetails('${link.childId}')" style="margin-top: 10px; padding: 6px 12px; font-size: 0.8rem; width: auto;">View Full Details</button>
             </div>
           `;
         }
@@ -1244,7 +1141,7 @@
           <h3><i class="fas fa-megaphone"></i> Latest Announcements</h3>
           <ul class="announcement-list">
             ${announcements.slice(0, 5).map(a => `
-              <li><i class="fas fa-bullhorn" style="color:#2563eb;"></i><div><strong>${a.title}</strong><br><small>${a.content}</small><br><small style="color:#64748b;">📅 ${new Date(a.createdAt?.toDate()).toLocaleDateString() || 'Recent'}</small></div></li>
+              <li><i class="fas fa-bullhorn" style="color:#2563eb;"></i><div><strong>${a.title}</strong><br><small>${a.content}</small><br><small style="color:#64748b;">📅 ${a.createdAt?.toDate ? new Date(a.createdAt.toDate()).toLocaleDateString() : 'Recent'}</small></div></li>
             `).join('') || '<li style="color:#64748b;">No announcements yet</li>'}
           </ul>
         </div>
@@ -1272,7 +1169,6 @@
           document.getElementById('scannerStatus').innerHTML = '<div class="scanner-status error">No cameras found. Please use manual entry.</div>';
         }
       } catch (err) {
-        console.error("Error initializing scanner:", err);
         document.getElementById('scannerStatus').innerHTML = '<div class="scanner-status error">Camera access denied. Please use manual entry.</div>';
       }
     };
@@ -1438,7 +1334,7 @@
           <div class="announcement-item">
             <strong>${a.title}</strong><br>
             <small>${a.content}</small><br>
-            <div class="announcement-date">Posted by ${a.postedBy || 'Teacher'} on ${new Date(a.createdAt?.toDate()).toLocaleString()}</div>
+            <div class="announcement-date">Posted by ${a.postedBy || 'Teacher'} on ${a.createdAt?.toDate ? new Date(a.createdAt.toDate()).toLocaleString() : 'Recently'}</div>
           </div>
         `).join('');
       }
@@ -1547,7 +1443,7 @@
       const studentsQuery = query(collection(db, "users"), where("role", "==", "student"));
       const studentsSnapshot = await getDocs(studentsQuery);
       
-      let html = '<div style="max-height: 400px; overflow-y: auto;"><table style="width:100%"><thead><tr><th>Student</th><th>Present</th><th>Total</th><th>%</th></tr></thead><tbody>';
+      let html = '<div style="max-height: 400px; overflow-y: auto;"><table style="width:100%"><thead><tr><th>Student</th><th>Present</th><th>Total</th><th>%</th> </thead><tbody>';
       
       for (const studentDoc of studentsSnapshot.docs) {
         const student = studentDoc.data();
@@ -1629,43 +1525,7 @@
       loadParentDashboard();
     };
     
-    window.viewChildDetails = async function(childId) {
-      const childDoc = await getDoc(doc(db, "users", childId));
-      if (!childDoc.exists()) return;
-      
-      const child = childDoc.data();
-      const attendanceQuery = query(collection(db, "attendance"), where("studentId", "==", childId), orderBy("date", "desc"));
-      const attendanceSnapshot = await getDocs(attendanceQuery);
-      const attendanceRecords = attendanceSnapshot.docs.map(doc => doc.data());
-      const present = attendanceRecords.filter(a => a.status === 'present').length;
-      const total = attendanceRecords.length;
-      const percent = total ? ((present/total)*100).toFixed(1) : 0;
-      
-      let historyHtml = `<div style="max-height: 400px; overflow-y: auto;">
-        <div style="background: #f8fafc; padding: 1rem; border-radius: 16px; margin-bottom: 1rem;">
-          <strong>${child.name}</strong><br>
-          Roll No: ${child.rollNo} | Class: ${child.class}<br>
-          Attendance: ${present}/${total} (${percent}%)
-        </div>
-        <h4>Attendance History</h4>`;
-      
-      attendanceRecords.forEach(a => {
-        historyHtml += `<div style="padding: 10px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between;">
-          <span>${a.date}</span>
-          <span style="color: ${a.status === 'present' ? '#10b981' : '#ef4444'}">${a.status.toUpperCase()}</span>
-          <span>${a.time || '-'}</span>
-        </div>`;
-      });
-      historyHtml += '</div>';
-      
-      const modal = document.createElement('div');
-      modal.className = 'modal';
-      modal.style.display = 'flex';
-      modal.innerHTML = `<div class="modal-content"><h3>Child Details: ${child.name}</h3>${historyHtml}<button class="btn-secondary" onclick="this.closest('.modal').remove()">Close</button></div>`;
-      document.body.appendChild(modal);
-    };
-    
-    // Auth state listener
+    // Auth state listener - Loads in 1-2 seconds
     onAuthStateChanged(auth, async (user) => {
       if (user) {
         const userDoc = await getDoc(doc(db, "users", user.uid));
