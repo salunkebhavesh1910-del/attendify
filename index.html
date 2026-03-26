@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+  <title>Attendify | Smart Attendance Management System</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700;14..32,800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+  <link rel="stylesheet" href="css/style.css">
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+  <script src="lib/qrcode.min.js"></script>
+</head>
+<body>
+  <div class="splash-screen" id="splashScreen">
+    <div class="splash-content">
+      <div class="splash-logo"><i class="fas fa-qrcode"></i></div>
+      <h1 class="splash-title">Attendify</h1>
+      <p class="splash-tagline">Smart Attendance, Smarter Management</p>
+    </div>
+  </div>
+
+  <div class="welcome-container" id="welcomeContainer">
+    <div class="welcome-card">
+      <div class="welcome-logo"><i class="fas fa-check-circle"></i></div>
+      <h2 class="welcome-title">Welcome to Attendify</h2>
+      <p class="welcome-subtitle">Smart Attendance, Smarter Management</p>
+      <button class="create-account-btn" onclick="showSignupModal()">
+        <i class="fas fa-user-plus"></i> Create New Account
+      </button>
+      <div class="login-prompt">
+        <p>Already have an account? <a onclick="showLoginScreen()">Login here</a></p>
+      </div>
+    </div>
+  </div>
+
+  <div id="signupModal" class="modal">
+    <div class="modal-content">
+      <h3><i class="fas fa-user-plus"></i> Create Account</h3>
+      <div class="role-selector">
+        <div class="role-option" data-role="student" onclick="selectSignupRole('student')">
+          <i class="fas fa-user-graduate"></i> Student
+        </div>
+        <div class="role-option" data-role="teacher" onclick="selectSignupRole('teacher')">
+          <i class="fas fa-chalkboard-user"></i> Teacher
+        </div>
+        <div class="role-option" data-role="parent" onclick="selectSignupRole('parent')">
+          <i class="fas fa-users"></i> Parent
+        </div>
+      </div>
+      <form id="signupForm">
+        <div class="input-group"><input type="text" id="signupName" placeholder="Full Name" required></div>
+        <div class="input-group"><input type="email" id="signupEmail" placeholder="Email Address" required></div>
+        <div class="input-group" id="rollNoField" style="display:none;"><input type="text" id="signupRollNo" placeholder="Roll Number / Student ID"></div>
+        <div class="input-group" id="classField" style="display:none;"><input type="text" id="signupClass" placeholder="Class / Grade"></div>
+        <div class="input-group"><input type="password" id="signupPassword" placeholder="Password" required></div>
+        <div class="input-group"><input type="password" id="signupConfirmPassword" placeholder="Confirm Password" required></div>
+        <input type="hidden" id="signupRole" value="">
+        <button type="submit" class="btn-primary">Create Account</button>
+        <button type="button" class="btn-secondary" onclick="closeSignupModal()">Cancel</button>
+      </form>
+    </div>
+  </div>
+
+  <div id="createAnnouncementModal" class="modal">
+    <div class="modal-content">
+      <h3><i class="fas fa-bullhorn"></i> Create Announcement</h3>
+      <form id="createAnnouncementForm">
+        <div class="input-group"><input type="text" id="announcementTitle" placeholder="Announcement Title" required></div>
+        <div class="input-group"><textarea id="announcementContent" rows="4" placeholder="Announcement Details" required></textarea></div>
+        <button type="submit" class="btn-primary">Post Announcement</button>
+        <button type="button" class="btn-secondary" onclick="closeCreateAnnouncementModal()">Cancel</button>
+      </form>
+    </div>
+  </div>
+
+  <div id="loginContainer" class="login-container">
+    <div class="login-card">
+      <div class="welcome-logo"><i class="fas fa-sign-in-alt"></i></div>
+      <h2 class="welcome-title">Login to Attendify</h2>
+      <form id="loginForm">
+        <div class="input-group"><input type="email" id="loginEmail" placeholder="Email Address" required></div>
+        <div class="input-group"><input type="password" id="loginPassword" placeholder="Password" required></div>
+        <button type="submit" class="btn-primary">Login</button>
+      </form>
+      <div class="back-link"><a onclick="showWelcomeScreen()">← Back to Create Account</a></div>
+    </div>
+  </div>
+
+  <div id="appContainer" class="app-container">
+    <div class="top-bar">
+      <div class="logo-area">
+        <h1>📘 Attendify</h1>
+        <p class="slogan">“Smart Attendance, Smarter Management”</p>
+      </div>
+      <div class="user-info">
+        <span class="badge" id="userRoleBadge"></span>
+        <span id="userNameDisplay" style="font-weight:500;"></span>
+        <button class="icon-btn" onclick="logout()">
+          <i class="fas fa-sign-out-alt"></i> Logout
+        </button>
+      </div>
+    </div>
+    
+    <div class="notification-badge" onclick="showNotifications()">
+      <i class="fas fa-bell"></i>
+      <span id="notificationCount" style="position: absolute; top: -5px; right: -5px; background: #ef4444; border-radius: 50%; width: 18px; height: 18px; font-size: 10px; display: flex; align-items: center; justify-content: center;">0</span>
+    </div>
+    
+    <div class="dashboard" id="dashboardContent">
+      <div class="loading">Loading dashboard...</div>
+    </div>
+    <footer>© Attendify — Smart Attendance Management System</footer>
+  </div>
+
+  <div id="qrModal" class="modal">
+  <div class="modal-content">
+    <h3><i class="fas fa-qrcode"></i> My QR Code</h3>
+    <div id="qrCodeDisplay" style="text-align: center; padding: 1rem;">
+      <div id="qrcode" style="display: flex; justify-content: center; align-items: center; margin: 0 auto;"></div>
+      <p style="margin-top: 1rem; font-weight: 600; font-size: 1.1rem;" id="qrStudentId"></p>
+      <p style="font-size: 0.8rem; color: #64748b;">Show this to your teacher to mark attendance</p>
+      <p style="font-size: 0.7rem; color: #64748b; margin-top: 0.5rem;">Make sure the QR code is clearly visible and well-lit</p>
+    </div>
+    <button class="btn-secondary" onclick="closeQRModal()">Close</button>
+  </div>
+</div>
+
+  <div id="qrScannerModal" class="modal">
+  <div class="modal-content">
+    <h3><i class="fas fa-camera"></i> QR Code Scanner</h3>
+    <p style="margin-bottom: 1rem; color: #64748b;">Point camera at student's QR code</p>
+    <div id="qr-reader" style="width: 100%; min-height: 300px; background: #f1f5f9; border-radius: 16px;"></div>
+    <div id="scannerStatus" class="scanner-status"></div>
+    <div class="manual-input">
+      <p style="text-align: center; margin-bottom: 0.5rem;">Or enter manually:</p>
+      <div class="input-group" style="display: flex; gap: 10px;">
+        <input type="text" id="manualStudentId" placeholder="Roll Number (e.g., STU001)" style="flex: 1;">
+        <button class="btn-primary" onclick="markManualAttendance()" style="width: auto; padding: 12px 20px; margin: 0;">Mark</button>
+      </div>
+    </div>
+    <div style="display: flex; justify-content: center; margin-top: 10px;">
+  <button class="camera-switch" onclick="switchCamera()" style="flex: 1;">
+    <i class="fas fa-sync-alt"></i> Switch Camera
+  </button>
+</div>
+    <button class="btn-secondary" onclick="stopScannerAndClose()">Close Scanner</button>
+  </div>
+</div>
+
+
+  <div id="leaveModal" class="modal">
+  <div class="modal-content">
+    <h3><i class="fas fa-calendar-alt"></i> Leave Application</h3>
+    <p style="text-align: center; margin: 1rem 0;">You will be redirected to Google Form</p>
+    <button class="btn-primary" onclick="window.open('https://forms.gle/xmwR5Zy6i4RjZgjw8', '_blank')">Open Google Form</button>
+    <button class="btn-secondary" onclick="closeLeaveModal()">Cancel</button>
+  </div>
+</div>
+
+  <div id="helpModal" class="modal">
+    <div class="modal-content">
+      <h3><i class="fas fa-headset"></i> Help & Support</h3>
+      <p><strong>📧 Email:</strong> support@attendify.com</p>
+      <p><strong>📞 Phone:</strong> +1 (555) 123-4567</p>
+      <p><strong>💬 Live Chat:</strong> Available 9 AM - 6 PM</p>
+      <button class="btn-secondary" onclick="closeHelpModal()">Close</button>
+    </div>
+  </div>
+
+  <div id="announcementModal" class="modal">
+    <div class="modal-content">
+      <h3><i class="fas fa-bullhorn"></i> Announcements</h3>
+      <div id="announcementList"></div>
+      <button class="btn-secondary" onclick="closeAnnouncementModal()">Close</button>
+    </div>
+  </div>
+
+  <div id="linkChildModal" class="modal">
+    <div class="modal-content">
+      <h3><i class="fas fa-child"></i> Link Your Child</h3>
+      <p style="margin-bottom: 1rem; color: #64748b;">Enter your child's roll number to view their attendance</p>
+      <div class="input-group"><input type="text" id="linkChildRollNo" placeholder="Child's Roll Number"></div>
+      <button class="btn-primary" onclick="linkChild()">Link Child</button>
+      <button class="btn-secondary" onclick="closeLinkChildModal()">Cancel</button>
+    </div>
+  </div>
+
+  <script src="js/utils.js"></script>
+  <script src="js/database.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/dashboard.js"></script>
+  <script src="js/qr.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
